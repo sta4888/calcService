@@ -1,0 +1,77 @@
+# -----------------------------
+# Python artifacts
+# -----------------------------
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pkl
+
+# -----------------------------
+# Virtual environments
+# -----------------------------
+.venv/
+venv/
+env/
+
+# uv specific cache
+.uv/
+
+# -----------------------------
+# Build & packaging
+# -----------------------------
+build/
+dist/
+*.egg-info/
+
+# -----------------------------
+# IDE / Editors
+# -----------------------------
+.vscode/
+.idea/
+*.iml
+
+# -----------------------------
+# Operating system files
+# -----------------------------
+.DS_Store
+Thumbs.db
+
+# -----------------------------
+# Logs
+# -----------------------------
+*.log
+logs/
+log/
+
+# -----------------------------
+# Local configs / secrets
+# -----------------------------
+.env
+.env.*
+*.secret
+*.local
+
+# -----------------------------
+# Docker related
+# -----------------------------
+docker-compose.override.yml
+
+# -----------------------------
+# Git
+# -----------------------------
+.git/
+.gitignore
+.gitattributes
+
+# -----------------------------
+# Tests
+# -----------------------------
+htmlcov/
+.tox/
+.coverage
+.pytest_cache/
+tests/__pycache__/
+
+# If tests are large or contain fixtures:
+tests/

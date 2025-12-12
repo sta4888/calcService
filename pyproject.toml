@@ -1,0 +1,9 @@
+[project]
+name = "calcservice"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi[standard]>=0.124.4",
+    "pydantic>=2.12.5",
+]
