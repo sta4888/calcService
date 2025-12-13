@@ -8,13 +8,16 @@ services:
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: "postgresql+asyncpg://user:pass@db:5432/calc"
-      PYTHONPATH: "/app"
+      DATABASE_URL: postgresql+asyncpg://user:pass@db:5432/calc
+      RABBITMQ_URL: amqp://rabbitmq:5672
+      PYTHONPATH: /app
     depends_on:
       - db
+      - rabbitmq
 
   db:
     image: postgres:16
+    container_name: calcservice_db
     restart: always
     environment:
       POSTGRES_USER: user
@@ -25,5 +28,19 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: calcservice_rabbitmq
+    restart: always
+    ports:
+      - "5672:5672"     # AMQP
+      - "15672:15672"   # UI
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
 volumes:
   pgdata:
+  rabbitmq_data:
