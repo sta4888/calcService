@@ -1,4 +1,4 @@
-from app.domain.value_objects.level import Level
+from domain.value_objects.level import Level
 
 LEVELS = [
     (0,    0.00),

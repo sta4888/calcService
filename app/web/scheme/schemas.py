@@ -25,3 +25,26 @@ class IncomeResponse(BaseModel):
     personal_bonus: float
     structure_bonus: float
     total_income: float
+
+
+# class MemberInput(BaseModel):
+#     user_id: int
+#     referrer_id: Optional[int] = None
+
+
+class AddLORequest(BaseModel):
+    lo: float
+
+
+class MemberStatus(BaseModel):
+    user_id: int
+    lo: float
+    go: float
+    level: float
+    personal_bonus: float
+    structure_bonus: float
+    total_income: float
+    team: List["MemberStatus"] = []
+
+
+MemberStatus.model_rebuild()

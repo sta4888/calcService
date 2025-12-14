@@ -1,5 +1,5 @@
-from app.domain.value_objects.levels import level_by_volume
-from app.domain.value_objects.level import Level
+from domain.value_objects.levels import level_by_volume
+from domain.value_objects.level import Level
 
 
 def test_level_zero():

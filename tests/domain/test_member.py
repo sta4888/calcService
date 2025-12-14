@@ -1,4 +1,4 @@
-from app.domain.models.member import Member
+from domain.models.member import Member
 
 
 def test_group_volume_single():

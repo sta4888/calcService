@@ -1,5 +1,5 @@
-from app.domain.models.member import Member
-from app.domain.value_objects.levels import LEVELS
+from domain.models.member import Member
+from domain.value_objects.levels import LEVELS
 
 def get_level(volume: float) -> float:
     level = 0

@@ -1,5 +1,5 @@
-from app.domain.models.member import Member
-from app.domain.services.income_calculator import IncomeCalculator
+from domain.models.member import Member
+from domain.services.income_calculator import IncomeCalculator
 
 
 def test_personal_bonus_only():

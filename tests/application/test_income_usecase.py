@@ -1,4 +1,4 @@
-from app.application.calculate_income import IncomeCalculatorUseCase
+from application.calculate_income import IncomeCalculatorUseCase
 
 
 def test_use_case_builds_structure():

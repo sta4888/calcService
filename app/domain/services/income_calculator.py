@@ -1,5 +1,5 @@
-from app.domain.value_objects.levels import level_by_volume
-from app.web.schemas import IncomeResponse
+from domain.value_objects.levels import level_by_volume
+from web.scheme.schemas import IncomeResponse
 
 class IncomeCalculator:
     def calculate(self, root):

@@ -1,16 +1,16 @@
 from fastapi import APIRouter
 
-from app.web.schemas import ApiResponse, MemberInput, IncomeResponse
-from app.application.calculate_income import IncomeCalculator
-from app.domain.exceptions import DomainError
-from app.web.utils import build_member_from_payload
+from web.scheme.schemas import ApiResponse, MemberInput, IncomeResponse
+from application.calculate_income import IncomeCalculator
+from domain.exceptions import DomainError
+from web.utils import build_member_from_payload
 
-router = APIRouter()
+claculate = APIRouter()
 calculator = IncomeCalculator()
 
 
-@router.post("/calculate", response_model=ApiResponse)
-async def calculate_income(payload: MemberInput):
+@claculate.post("/calculate", response_model=ApiResponse)
+async def calculate_income(payload: MemberInput): # todo Исправить MemberInput так, чтоб отправлялся ID пользователя а получали на выходе уже скалькулированные данные, а данные для калькуляции должны браться из БД
     try:
         # пытаемся построить доменный объект
         root = build_member_from_payload(payload.model_dump())

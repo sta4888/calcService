@@ -1,4 +1,4 @@
-from app.domain.models.member import Member
+from domain.models.member import Member
 from typing import Dict, Any, List
 
 
