@@ -1,7 +1,12 @@
 from typing import List
 
+from app.domain.exceptions import InvalidVolumeError
+
+
 class Member:
     def __init__(self, name: str, lo: float, team: List["Member"] | None = None):
+        if lo < 0:
+            raise InvalidVolumeError("LO cannot be negative")
         self.name = name
         self.lo = lo
         self.team = team or []

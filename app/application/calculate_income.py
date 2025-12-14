@@ -1,6 +1,7 @@
 from app.domain.models.member import Member
 from app.domain.services.income_calculator import IncomeCalculator
 
+
 class IncomeCalculatorUseCase:
     def __init__(self):
         self.calculator = IncomeCalculator()
