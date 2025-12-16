@@ -1,35 +1,23 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
-from web.scheme.schemas import ApiResponse, MemberInput, IncomeResponse
-from application.calculate_income import IncomeCalculator
 from domain.exceptions import DomainError
-from web.utils import build_member_from_payload
+from web.scheme.schemas import ApiResponse, CalculateIncomeRequest
+from application.services.income_service import IncomeService
+from domain.repositories.member_repository import MemberRepository
 
-claculate = APIRouter()
-calculator = IncomeCalculator()
+calculate = APIRouter()
 
+def get_income_service():
+    repo = MemberRepository()
+    return IncomeService(repo)
 
-@claculate.post("/calculate", response_model=ApiResponse)
-async def calculate_income(payload: MemberInput): # todo Исправить MemberInput так, чтоб отправлялся ID пользователя а получали на выходе уже скалькулированные данные, а данные для калькуляции должны браться из БД
+@calculate.post("/calculate", response_model=ApiResponse)
+async def calculate_income(
+    payload: CalculateIncomeRequest,
+    service: IncomeService = Depends(get_income_service)
+):
     try:
-        # пытаемся построить доменный объект
-        root = build_member_from_payload(payload.model_dump())
-    except Exception as e:
-        return ApiResponse(error=True, data=None, error_msg=f"Invalid payload: {e}")
-
-
-    try:
-        # рассчитываем доход
-        result = calculator.calculate(root)
-        if not isinstance(result, IncomeResponse):
-            # защита от None или неверного возврата
-            raise DomainError("Calculation failed, result is not a dict")
-
+        result = await service.calculate(payload.user_id)
         return ApiResponse(error=False, data=result)
-
     except DomainError as e:
-        return ApiResponse(error=True, data=None, error_msg=str(e))
-    except Exception as e:
-        return ApiResponse(error=True, data=None, error_msg=f"Internal server error: {e}")
-
-
+        return ApiResponse(error=True, error_msg=str(e))

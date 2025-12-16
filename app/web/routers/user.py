@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 from application.services.user_service import UserService
 from domain.repositories.member_repository import MemberRepository
+from domain.services.income_calculator import IncomeCalculator
 from web.scheme.schemas import ApiResponse, AddLORequest
 from web.scheme.user import NewUserRequest
 
@@ -28,9 +29,7 @@ async def add_lo(
     return ApiResponse(error=False, data={"user_id": user_id, "lo_added": payload.lo})
 
 @user.get("/users/{user_id}/status")
-async def user_status(
-    user_id: int,
-    service: UserService = Depends(get_user_service),
-):
+async def user_status(user_id: int, service: UserService = Depends(get_user_service)):
     result = await service.get_status(user_id)
     return ApiResponse(error=False, data=result)
+

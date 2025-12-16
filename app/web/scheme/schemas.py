@@ -1,5 +1,5 @@
 from typing import List
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Any, Optional
 
 
@@ -9,27 +9,24 @@ class ApiResponse(BaseModel):
     error_msg: Optional[str] = ""
 
 
-class MemberInput(BaseModel):
-    name: str
-    lo: float
-    team: List["MemberInput"] = []
+class CalculateIncomeRequest(BaseModel):
+    user_id: int
 
-# MemberInput.update_forward_refs()
 
 
 class IncomeResponse(BaseModel):
-    name: str
+    user_id: int
     lo: float
     go: float
     level: float
+    qualification: str
     personal_bonus: float
     structure_bonus: float
     total_income: float
+    points: float
+    veron: float
 
 
-# class MemberInput(BaseModel):
-#     user_id: int
-#     referrer_id: Optional[int] = None
 
 
 class AddLORequest(BaseModel):
@@ -44,7 +41,7 @@ class MemberStatus(BaseModel):
     personal_bonus: float
     structure_bonus: float
     total_income: float
-    team: List["MemberStatus"] = []
+    team: List["MemberStatus"] = Field(default_factory=list)
 
 
 MemberStatus.model_rebuild()

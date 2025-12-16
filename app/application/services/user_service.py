@@ -1,10 +1,12 @@
 from domain.repositories.member_repository import MemberRepository
 from domain.exceptions import DomainError
+from domain.services.income_calculator import IncomeCalculator
 from infrastructure.db.models import MemberDB
 
 class UserService:
     def __init__(self, repo: MemberRepository):
         self.repo = repo
+        self.calculator = IncomeCalculator()
 
     async def create(self, user_id: int, referrer_id: int | None = None) -> MemberDB:
         existing = await self.repo.get_by_user_id(user_id)
@@ -24,26 +26,23 @@ class UserService:
             name=""
         )
 
-        await self.repo.add(member)
+        await self.repo.save(member)
         return member
 
-    async def add_lo(self, user_id: int, lo: float) -> None:
+    async def add_lo(self, user_id: int, delta: float):
         member = await self.repo.get_by_user_id(user_id)
         if not member:
             raise DomainError("User not found")
 
-        member.lo += lo
-        await self.repo.update(member)
+        member.lo += delta  # 👈 доменная логика
+        await self.repo.save(member)
 
     async def get_status(self, user_id: int) -> dict:
-        member = await self.repo.get_by_user_id(user_id)
-        if not member:
-            raise DomainError("User not found")
+        # 1. Строим дерево участников
+        root_member = await self.repo.build_member_tree(user_id)
 
-        # Пример расчёта группового объёма
-        group_volume = sum(m.lo for m in member.team)
-        return {
-            "user_id": member.user_id,
-            "lo": member.lo,
-            "group_volume": group_volume
-        }
+        # 2. Рассчитываем доход через калькулятор
+        result = self.calculator.calculate(root_member)
+
+        # 3. Возвращаем
+        return result.dict()  # если используешь Pydantic-схему
