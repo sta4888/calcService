@@ -16,15 +16,17 @@ class CalculateIncomeRequest(BaseModel):
 
 class IncomeResponse(BaseModel):
     user_id: int
+    qualification: str
     lo: float
     go: float
-    level: float
-    qualification: str
+    points: float
     personal_bonus: float
     structure_bonus: float
-    total_income: float
-    points: float
+    mentor_bonus: float
+    extra_bonus: str
     veron: float
+    total_income: float
+
 
 
 

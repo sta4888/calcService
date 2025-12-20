@@ -1,41 +1,63 @@
-from domain.value_objects.levels import level_by_volume, qualification_by_percent
+from domain.value_objects.qualifications import qualification_by_points
 from web.scheme.schemas import IncomeResponse
 
+VERON_PRICE = 7000
+
 class IncomeCalculator:
+
     def calculate(self, member):
-        # уровень по групповому объёму
-        level = level_by_volume(member.group_volume())
-        qual = qualification_by_percent(level.percent)
+        # ГО
+        group_volume = member.group_volume()
 
-        personal_bonus = member.lo * level.percent
-        structure_bonus = sum(self._structure_bonus(child, level) for child in member.team)
+        # Баллы = ГО
+        points = int(group_volume)
 
-        points = self._calc_points(member.lo)
-        veron = self._calc_veron(points, level.percent)
+        # Статус
+        qualification = qualification_by_points(points)
+
+        # ===== Денежные бонусы =====
+
+        # Личный бонус (деньги)
+        personal_bonus = member.lo * qualification.personal_percent * VERON_PRICE
+
+        # Командный оборот
+        team_volume = max(group_volume - member.lo, 0)
+
+        # Командный бонус (деньги)
+        team_bonus = team_volume * qualification.team_percent * VERON_PRICE
+
+        # ===== Veron =====
+
+        # Veron за личный объём
+        veron_personal = member.lo * qualification.personal_percent
+
+        # Veron за групповой объём
+        veron_team = group_volume * qualification.team_percent
+
+        veron_total = veron_personal + veron_team
+        veron_money = veron_total * VERON_PRICE
+
+        # ===== Наставничество =====
+
+        mentor_bonus = group_volume * qualification.mentor_percent * VERON_PRICE
+
+        # ===== Итого =====
+
+        total_income = (
+            veron_money +
+            mentor_bonus
+        )
 
         return IncomeResponse(
             user_id=member.user_id,
+            qualification=qualification.name,
             lo=member.lo,
-            go=member.group_volume(),
-            level=level.percent,
-            qualification=qual,
-            personal_bonus=personal_bonus,
-            structure_bonus=structure_bonus,
-            total_income=personal_bonus + structure_bonus,
+            go=team_volume,
             points=points,
-            veron=veron
+            personal_bonus=personal_bonus,
+            structure_bonus=team_bonus,
+            mentor_bonus=mentor_bonus,
+            extra_bonus=qualification.extra_bonus,
+            veron=veron_money,
+            total_income=total_income
         )
-
-    def _structure_bonus(self, member, upline_level):
-        my_level = level_by_volume(member.group_volume())
-        diff = upline_level.diff(my_level) or 0
-        bonus = member.group_volume() * diff
-        deep = sum(self._structure_bonus(child, my_level) for child in member.team)
-        return bonus + deep
-
-    def _calc_points(self, lo: float) -> float:
-        return lo / 15000
-
-    def _calc_veron(self, points: float, percent: float) -> float:
-        return points * (1 + percent) * 7000
-
