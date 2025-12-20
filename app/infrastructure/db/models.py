@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.orm import relationship, declarative_base
-from sqlalchemy import Column, Integer, Float, ForeignKey, String
+from sqlalchemy import Column, Integer, Float, ForeignKey, String, CheckConstraint
 
 Base = declarative_base(cls=AsyncAttrs)
 
@@ -34,4 +34,8 @@ class MemberDB(Base):
         cascade="all, delete-orphan",
         lazy="selectin"
     )
+
+    # __table_args__ = (
+    #     CheckConstraint("lo >= 0", name="ck_member_lo_non_negative"),
+    # )
 

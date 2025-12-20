@@ -3,6 +3,7 @@ from domain.exceptions import DomainError
 from domain.services.income_calculator import IncomeCalculator
 from infrastructure.db.models import MemberDB
 
+
 class UserService:
     def __init__(self, repo: MemberRepository):
         self.repo = repo
@@ -34,7 +35,18 @@ class UserService:
         if not member:
             raise DomainError("User not found")
 
-        member.lo += delta  # 👈 доменная логика
+        member.lo += delta
+        await self.repo.save(member)
+
+    async def sub_lo(self, user_id: int, delta: float):
+        if delta <= 0:
+            raise DomainError("Delta must be positive")
+
+        member = await self.repo.get_by_user_id(user_id)
+        if not member:
+            raise DomainError("User not found")
+
+        member.lo = max(0, member.lo - delta)
         await self.repo.save(member)
 
     async def get_status(self, user_id: int) -> dict:
