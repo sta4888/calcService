@@ -1,9 +1,10 @@
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from domain.exceptions import DomainError
 from domain.models.member import Member
 from infrastructure.db.session import async_session
-from infrastructure.db.models import MemberDB
+from infrastructure.db.models import MemberDB, MemberStatsDB
 
 
 class MemberRepository:
@@ -14,6 +15,7 @@ class MemberRepository:
         async with self._session_factory() as session:
             result = await session.execute(
                 select(MemberDB)
+                .options(selectinload(MemberDB.stats))
                 .where(MemberDB.user_id == user_id)
             )
             return result.scalars().first()
@@ -22,7 +24,8 @@ class MemberRepository:
         async with self._session_factory() as session:
             result = await session.execute(
                 select(MemberDB)
-                .where(MemberDB.referrer_id == referrer_id)
+                .options(selectinload(MemberDB.stats))
+                .where(MemberDB.referrer_id == referrer_id)  # ищем по PK
             )
             return result.scalars().all()
 
@@ -31,14 +34,14 @@ class MemberRepository:
             async with session.begin():
                 session.add(member)
 
-    async def build_member_tree(self, user_id: int) -> "Member":
+    async def build_member_tree(self, user_id: int) -> Member:
         root_db = await self.get_by_user_id(user_id)
         if not root_db:
             raise DomainError("User not found")
 
         return await self._build_recursive(root_db)
 
-    async def _build_recursive(self, db_member: MemberDB) -> "Member":
+    async def _build_recursive(self, db_member: MemberDB) -> Member:
         children_db = await self.get_by_referrer_id(db_member.id)
 
         children = [
@@ -46,9 +49,11 @@ class MemberRepository:
             for child in children_db
         ]
 
+        lo = db_member.stats.lo if db_member.stats else 0
+
         return Member(
             user_id=db_member.user_id,
             referrer_id=db_member.referrer_id,
-            lo=db_member.lo,
+            lo=lo,
             team=children
         )
