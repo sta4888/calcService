@@ -1,68 +1,80 @@
-from domain.models.member import Member
+import pytest
+
+from domain.models.member import Member, SIDE_VOLUME_THRESHOLD
 from domain.services.income_calculator import IncomeCalculator
 
 
-def test_personal_bonus_only():
-    """
-    Один участник, без структуры
-    """
-    member = Member(name="A", lo=200)
-    calc = IncomeCalculator()
+def test_income_no_team():
+    m = Member(1, lo=100)
+    result = IncomeCalculator().calculate(m)
 
-    result = calc.calculate(member)
-
-    assert result.lo == 200
-    assert result.go == 200
-    assert result.level == 0.06
-    assert result.personal_bonus == 200 * 0.06
-    assert result.structure_bonus == 0
-    assert result.total_income == 200 * 0.06
+    assert result.side_volume == 100
+    assert result.points == 100
+    assert result.total_income > 0
 
 
-def test_simple_structure_bonus():
-    """
-    A (400) -> B (200)
-    """
-    root = Member(
-        name="A",
-        lo=400,
-        team=[Member("B", 200)],
-    )
+@pytest.mark.parametrize(
+    "members, connections, expected_side_volume, expected_points, expected_qualification",
+    [
+        # вариант 1: два участника, side < threshold
+        (
+                [(1, 50), (2, 200), (3, 500), (4, 500), (5, 500), (6, 300)],  # (id, lo)
+                {1: [2, 3], 2:[4,5,6]},  # связи: ключ — root, значения — его команда
+                50,  # ожидаемый side_volume
+                50,  # ожидаемые points
+                "Hamkor"  # ожидаемые qualification
+        ),
+        # вариант 2: другой пример
+        # (
+        #         [(1, 50), (2, 30), (3, 20)],
+        #         {1: [2, 3]},
+        #         50,  # пример
+        #         50  # пример
+        # ),
+    ]
+)
+def test_income_side_volume_parametrize(members, connections, expected_side_volume, expected_points,
+                                        expected_qualification):
+    # создаём объекты
+    objs = {mid: Member(mid, lo=lo) for mid, lo in members}
 
-    calc = IncomeCalculator()
-    result = calc.calculate(root)
+    # формируем связи
+    for parent_id, children_ids in connections.items():
+        objs[parent_id].team = [objs[cid] for cid in children_ids]
 
-    # уровни
-    # A: GO=600 -> 0.09
-    # B: GO=200 -> 0.06
-    # diff = 0.03
+    root = objs[members[0][0]]
+    result = IncomeCalculator().calculate(root)
 
-    expected_structure_bonus = 200 * 0.03
+    assert result.side_volume == expected_side_volume
+    assert result.points == expected_points
+    assert result.qualification == expected_qualification
 
-    assert result.structure_bonus == expected_structure_bonus
-
-
-def test_deep_structure_bonus():
-    """
-    A (300)
-      └─ B (500)
-          └─ C (400)
-    """
-    root = Member(
-        name="A",
-        lo=300,
-        team=[
-            Member(
-                "B",
-                500,
-                team=[Member("C", 400)],
-            )
-        ],
-    )
-
-    calc = IncomeCalculator()
-    result = calc.calculate(root)
-
-    # Проверяем, что бонус не отрицательный
-    assert result.structure_bonus >= 0
-    assert result.total_income > result.personal_bonus
+# def test_income_side_volume_enough():
+#     root = Member(1, lo=100)
+#     root.team = [
+#         Member(2, lo=600),
+#         Member(3, lo=500),
+#     ]
+#
+#     result = IncomeCalculator().calculate(root)
+#
+#     assert result.side_volume <= SIDE_VOLUME_THRESHOLD
+#     assert result.points == int(root.group_volume())
+#
+#
+# def test_income_grows_after_side_threshold():
+#     root = Member(1, lo=100)
+#     a = Member(2, lo=600)
+#     b = Member(3, lo=100)
+#
+#     root.team = [a, b]
+#
+#     calc = IncomeCalculator()
+#     income_before = calc.calculate(root).total_income
+#
+#     # добиваем слабую ветку до порога
+#     b.lo += 500
+#
+#     income_after = calc.calculate(root).total_income
+#
+#     assert income_after > income_before

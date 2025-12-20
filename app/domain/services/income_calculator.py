@@ -1,52 +1,39 @@
+from domain.models.member import SIDE_VOLUME_THRESHOLD
 from domain.value_objects.qualifications import qualification_by_points
 from web.scheme.schemas import IncomeResponse
 
 VERON_PRICE = 7000
 
+
 class IncomeCalculator:
 
     def calculate(self, member):
-        # ГО
         group_volume = member.group_volume()
+        side_volume = member.side_volume()
 
-        # Баллы = ГО
-        points = int(group_volume)
+        # квалификация определяется ОДИН раз
+        if side_volume >= SIDE_VOLUME_THRESHOLD:
+            points = int(group_volume)
+        else:
+            points = int(side_volume)
 
-        # Статус
         qualification = qualification_by_points(points)
 
-        # ===== Денежные бонусы =====
+        personal_bonus = (
+            member.lo * qualification.personal_percent * VERON_PRICE
+        )
 
-        # Личный бонус (деньги)
-        personal_bonus = member.lo * qualification.personal_percent * VERON_PRICE
-
-        # Командный оборот
         team_volume = max(group_volume - member.lo, 0)
 
-        # Командный бонус (деньги)
-        team_bonus = team_volume * qualification.team_percent * VERON_PRICE
-
-        # ===== Veron =====
-
-        # Veron за личный объём
-        veron_personal = member.lo * qualification.personal_percent
-
-        # Veron за групповой объём
-        veron_team = group_volume * qualification.team_percent
-
-        veron_total = veron_personal + veron_team
-        veron_money = veron_total * VERON_PRICE
-
-        # ===== Наставничество =====
-
-        mentor_bonus = group_volume * qualification.mentor_percent * VERON_PRICE
-
-        # ===== Итого =====
-
-        total_income = (
-            veron_money +
-            mentor_bonus
+        team_bonus = (
+            team_volume * qualification.team_percent * VERON_PRICE
         )
+
+        mentor_bonus = (
+            group_volume * qualification.mentor_percent * VERON_PRICE
+        )
+
+        total_income = personal_bonus + team_bonus + mentor_bonus
 
         return IncomeResponse(
             user_id=member.user_id,
@@ -57,7 +44,8 @@ class IncomeCalculator:
             personal_bonus=personal_bonus,
             structure_bonus=team_bonus,
             mentor_bonus=mentor_bonus,
+            side_volume=side_volume,
             extra_bonus=qualification.extra_bonus,
-            veron=veron_money,
-            total_income=total_income
+            veron=personal_bonus + team_bonus,
+            total_income=total_income,
         )

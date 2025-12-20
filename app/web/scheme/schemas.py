@@ -19,6 +19,7 @@ class IncomeResponse(BaseModel):
     qualification: str
     lo: float
     go: float
+    side_volume: float
     points: float
     personal_bonus: float
     structure_bonus: float
