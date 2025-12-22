@@ -13,6 +13,23 @@ class CalculateIncomeRequest(BaseModel):
     user_id: int
 
 
+from typing import List, Dict, Any
+from pydantic import BaseModel
+
+
+class BranchInfo(BaseModel):
+    """Информация о ветке для отладки"""
+    branch_id: int
+    branch_qualification_by_gv: str  # Квалификация по group volume
+    branch_qualification_by_side: str  # Квалификация по side volume
+    lo: float
+    gv: float
+    side_volume: float
+    is_closed: bool  # Закрыла ли квалификацию по side volume
+    is_stronger_than_parent: bool  # Сильнее ли родителя
+    parent_earn_percent: float  # Сколько % получает родитель с этой ветки
+    parent_earn_money: float  # Сколько денег получает родитель с этой ветки
+
 
 class IncomeResponse(BaseModel):
     user_id: int
@@ -31,9 +48,7 @@ class IncomeResponse(BaseModel):
     total_money: int
     veron: int
     total_income: float
-
-
-
+    branches_info: List[BranchInfo]  # НОВОЕ ПОЛЕ
 
 
 class AddLORequest(BaseModel):
