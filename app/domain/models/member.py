@@ -23,31 +23,3 @@ class Member:
 
     def group_volume(self) -> float:
         return self.lo + sum(m.group_volume() for m in self.team)
-
-    def branch_volumes(self) -> list[float]:
-        return [m.group_volume() for m in self.team]
-
-    def side_volume(self) -> float:
-        """
-        Боковой объём = LO + объёмы веток,
-        которые НЕ закрыли квалификацию
-        """
-        side = self.lo
-
-        for branch in self.team:
-            branch_gv = branch.group_volume()
-            branch_side = branch.side_volume()
-
-            qualification = qualification_by_points(int(branch_gv))
-
-            is_side_closed = (
-                branch_side >= SIDE_VOLUME_THRESHOLD
-                and qualification.name != "Hamkor"
-            )
-
-            if not is_side_closed:
-                side += branch_gv
-
-        return side
-
-

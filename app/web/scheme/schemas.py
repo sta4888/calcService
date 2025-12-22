@@ -25,7 +25,11 @@ class IncomeResponse(BaseModel):
     structure_bonus: float
     mentor_bonus: float
     extra_bonus: str
-    veron: float
+    personal_money: int
+    group_money: int
+    leader_money: int
+    total_money: int
+    veron: int
     total_income: float
 
 

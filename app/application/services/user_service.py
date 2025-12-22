@@ -1,3 +1,4 @@
+from application.mappers.member_mapper import member_to_tree_response
 from domain.repositories.member_repository import MemberRepository
 from domain.exceptions import DomainError
 from domain.services.income_calculator import IncomeCalculator
@@ -57,3 +58,7 @@ class UserService:
         root_member = await self.repo.build_member_tree(user_id)
         result = self.calculator.calculate(root_member)
         return result.dict()
+
+    async def get_structure(self, user_id: int) -> dict:
+        root_member = await self.repo.build_member_tree(user_id)
+        return member_to_tree_response(root_member).dict()

@@ -51,3 +51,12 @@ async def sub_lo(
 async def user_status(user_id: int, service: UserService = Depends(get_user_service)):
     result = await service.get_status(user_id)
     return ApiResponse(error=False, data=result)
+
+
+@user.get("/users/{user_id}/structure")
+async def user_structure(
+        user_id: int,
+        service: UserService = Depends(get_user_service),
+):
+    result = await service.get_structure(user_id)
+    return ApiResponse(error=False, data=result)
