@@ -29,6 +29,7 @@ class BranchInfo(BaseModel):
     is_stronger_than_parent: bool  # Сильнее ли родителя
     parent_earn_percent: float  # Сколько % получает родитель с этой ветки
     parent_earn_money: float  # Сколько денег получает родитель с этой ветки
+    level: float
 
 
 class IncomeResponse(BaseModel):

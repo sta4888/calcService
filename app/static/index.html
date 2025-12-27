@@ -1,53 +1,95 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8">
-<title>User Structure</title>
+    <meta charset="UTF-8">
+    <title>User Structure</title>
 
-<style>
-  body {
-    margin: 0;
-    font-family: Arial, sans-serif;
-    background: #f7f7f7;
-  }
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f7f7f7;
+        }
 
-  h2 {
-    padding: 10px 16px;
-    margin: 0;
-    background: #222;
-    color: #fff;
-  }
+        h2 {
+            padding: 10px 16px;
+            margin: 0;
+            background: #222;
+            color: #fff;
+        }
 
-  #viewport {
-    width: 100%;
-    height: calc(100vh - 50px);
-    overflow: auto;
-    background: #fff;
-  }
+        #viewport {
+            width: 100%;
+            height: calc(100vh - 50px);
+            overflow: auto;
+            background: #fff;
+        }
 
-  svg {
-    width: 100%;
-    height: 100%;
-  }
+        svg {
+            width: 100%;
+            height: 100%;
+        }
 
-  .node {
-    fill: #ffffff;
-    stroke: #333;
-    stroke-width: 1.5;
-  }
+        .node {
+            fill: #ffffff;
+            stroke: #333;
+            stroke-width: 1.5;
+        }
 
-  .label {
-    font-size: 12px;
-    text-anchor: middle;
-    dominant-baseline: middle;
-    pointer-events: none;
-  }
+        .label {
+            font-size: 12px;
+            text-anchor: middle;
+            dominant-baseline: middle;
+            pointer-events: none;
+        }
 
-  .link {
-    stroke: #999;
-    stroke-width: 1.2;
-  }
-</style>
+        .link {
+            stroke: #999;
+            stroke-width: 1.2;
+        }
+
+        .node-box {
+            fill: #ffffff;
+            stroke: #333;
+            stroke-width: 1.4;
+            rx: 10;
+            ry: 10;
+        }
+
+        .node-low {
+            fill: #f0f0f0;
+        }
+
+        .node-mid {
+            fill: #d0e8ff;
+        }
+
+        .node-good {
+            fill: #d6f5d6;
+        }
+
+        .node-top {
+            fill: #ffe9a8;
+        }
+
+        .label-id {
+            font-size: 13px;
+            font-weight: bold;
+            text-anchor: middle;
+        }
+
+        .label-lo {
+            font-size: 11px;
+            text-anchor: middle;
+            fill: #555;
+        }
+
+        .link {
+            stroke: #bbb;
+            stroke-width: 1.2;
+        }
+
+    </style>
 </head>
 
 <body>
@@ -55,129 +97,149 @@
 <h2>MLM Structure</h2>
 
 <div id="viewport">
-  <svg id="tree"></svg>
+    <svg id="tree"></svg>
 </div>
 
 <script>
-/* ===================== API ===================== */
+    /* ===================== API ===================== */
 
-async function fetchTree(userId) {
-    const response = await fetch(`/user/users/${userId}/structure`);
-    const json = await response.json();
+    async function fetchTree(userId) {
+        const response = await fetch(`/user/users/${userId}/structure`);
+        const json = await response.json();
 
-    if (json.error) {
-        throw new Error("API returned error");
+        if (json.error) {
+            throw new Error("API returned error");
+        }
+
+        return json.data;
     }
 
-    return json.data;
-}
+    /* ===================== UTILS ===================== */
 
-/* ===================== UTILS ===================== */
-
-function countLeaves(node) {
-    if (!node.team || node.team.length === 0) return 1;
-    return node.team.reduce((sum, c) => sum + countLeaves(c), 0);
-}
-
-function maxDepth(node, depth = 0) {
-    if (!node.team || node.team.length === 0) return depth;
-    return Math.max(...node.team.map(c => maxDepth(c, depth + 1)));
-}
-
-/* ===================== LAYOUT ===================== */
-
-function layout(node, levelY, state) {
-    node.y = levelY;
-
-    if (!node.team || node.team.length === 0) {
-        state.x += state.gapX;
-        node.x = state.x;
-        return;
+    function countLeaves(node) {
+        if (!node.team || node.team.length === 0) return 1;
+        return node.team.reduce((sum, c) => sum + countLeaves(c), 0);
     }
 
-    node.team.forEach(child =>
-        layout(child, levelY + state.gapY, state)
-    );
-
-    node.x = (
-        node.team[0].x +
-        node.team[node.team.length - 1].x
-    ) / 2;
-}
-
-/* ===================== DRAW ===================== */
-
-function drawLinks(node, svg) {
-    if (!node.team) return;
-
-    node.team.forEach(child => {
-        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-        line.setAttribute("x1", node.x);
-        line.setAttribute("y1", node.y);
-        line.setAttribute("x2", child.x);
-        line.setAttribute("y2", child.y);
-        line.setAttribute("class", "link");
-        svg.appendChild(line);
-
-        drawLinks(child, svg);
-    });
-}
-
-function drawNodes(node, svg) {
-    const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
-
-    const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-    circle.setAttribute("cx", node.x);
-    circle.setAttribute("cy", node.y);
-    circle.setAttribute("r", 22);
-    circle.setAttribute("class", "node");
-
-    const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-    text.setAttribute("x", node.x);
-    text.setAttribute("y", node.y);
-    text.setAttribute("class", "label");
-    text.textContent = node.user_id;
-
-    g.appendChild(circle);
-    g.appendChild(text);
-    svg.appendChild(g);
-
-    if (node.team) {
-        node.team.forEach(child => drawNodes(child, svg));
+    function maxDepth(node, depth = 0) {
+        if (!node.team || node.team.length === 0) return depth;
+        return Math.max(...node.team.map(c => maxDepth(c, depth + 1)));
     }
-}
 
-/* ===================== RENDER ===================== */
+    /* ===================== LAYOUT ===================== */
 
-async function render(userId) {
-    const root = await fetchTree(userId);
+    function layout(node, levelY, state) {
+        node.y = levelY;
 
-    const leaves = countLeaves(root);
-    const depth = maxDepth(root);
+        if (!node.team || node.team.length === 0) {
+            state.x += state.gapX;
+            node.x = state.x;
+            return;
+        }
 
-    const width = Math.max(1200, leaves * 140);
-    const height = Math.max(600, (depth + 1) * 120);
+        node.team.forEach(child =>
+            layout(child, levelY + state.gapY, state)
+        );
 
-    const svg = document.getElementById("tree");
-    svg.innerHTML = "";
-    svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
-    svg.setAttribute("preserveAspectRatio", "xMidYMin meet");
+        node.x = (
+            node.team[0].x +
+            node.team[node.team.length - 1].x
+        ) / 2;
+    }
 
-    const state = {
-        x: 0,
-        gapX: width / (leaves + 1),
-        gapY: 120
-    };
+    /* ===================== DRAW ===================== */
 
-    layout(root, 60, state);
+    function drawLinks(node, svg) {
+        if (!node.team) return;
 
-    drawLinks(root, svg);
-    drawNodes(root, svg);
-}
+        node.team.forEach(child => {
+            const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            line.setAttribute("x1", node.x);
+            line.setAttribute("y1", node.y);
+            line.setAttribute("x2", child.x);
+            line.setAttribute("y2", child.y);
+            line.setAttribute("class", "link");
+            svg.appendChild(line);
 
-/* ===================== START ===================== */
+            drawLinks(child, svg);
+        });
+    }
 
-render(1000);
+    function drawNodes(node, svg) {
+        const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+
+        const width = 90;
+        const height = 50;
+
+        const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        rect.setAttribute("x", node.x - width / 2);
+        rect.setAttribute("y", node.y - height / 2);
+        rect.setAttribute("width", width);
+        rect.setAttribute("height", height);
+        rect.setAttribute("class", `node-box ${loClass(node.lo)}`);
+
+        const textId = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        textId.setAttribute("x", node.x);
+        textId.setAttribute("y", node.y - 6);
+        textId.setAttribute("class", "label-id");
+        textId.textContent = `ID: ${node.user_id}`;
+
+        const textLo = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        textLo.setAttribute("x", node.x);
+        textLo.setAttribute("y", node.y + 12);
+        textLo.setAttribute("class", "label-lo");
+        textLo.textContent = `LO: ${node.lo}`;
+
+        g.appendChild(rect);
+        g.appendChild(textId);
+        g.appendChild(textLo);
+        svg.appendChild(g);
+
+        if (node.team) {
+            node.team.forEach(child => drawNodes(child, svg));
+        }
+    }
+
+
+    function loClass(lo) {
+        if (lo >= 1000) return "node-top";
+        if (lo >= 500) return "node-good";
+        if (lo >= 100) return "node-mid";
+        return "node-low";
+    }
+
+
+    /* ===================== RENDER ===================== */
+
+    async function render(userId) {
+        const root = await fetchTree(userId);
+
+        const leaves = countLeaves(root);
+        const depth = maxDepth(root);
+
+        const width = Math.max(1200, leaves * 140);
+        const height = Math.max(600, (depth + 1) * 120);
+
+        const svg = document.getElementById("tree");
+        svg.innerHTML = "";
+        svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+        svg.setAttribute("preserveAspectRatio", "xMidYMin meet");
+
+        const state = {
+            x: 0,
+            gapX: width / (leaves + 1),
+            gapY: 120
+        };
+
+        layout(root, 60, state);
+
+        drawLinks(root, svg);
+        drawNodes(root, svg);
+    }
+
+    /* ===================== START ===================== */
+
+    render(1000);
 </script>
 
 </body>

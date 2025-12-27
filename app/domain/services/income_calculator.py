@@ -1,5 +1,6 @@
-from typing import List
+from typing import List, Optional, Set
 from domain.models.member import SIDE_VOLUME_THRESHOLD, Member
+from domain.value_objects.BreakdownItem import BreakdownItem, IncomeBreakdown
 from domain.value_objects.qualification import Qualification
 from domain.value_objects.qualifications import qualification_by_points
 from web.scheme.schemas import IncomeResponse, BranchInfo
@@ -8,7 +9,6 @@ VERON_PRICE = 7000
 
 
 class IncomeCalculator:
-
     def _strong_branches_go(self, member: Member, qualification: Qualification) -> float:
         """Рассчитывает ГО сильных веток (квалификация >= родителя)"""
         strong_go = 0
@@ -21,6 +21,70 @@ class IncomeCalculator:
                 strong_go += branch_go
 
         return strong_go
+
+    def _find_strongest_sub_branches(self, branch: Member) -> List[Member]:
+        """
+        Находит все САМЫЕ СИЛЬНЫЕ подветки в ветке, учитывая иерархию.
+        Если есть несколько одинаково сильных квалификаций, выбирает ТОЛЬКО САМЫЕ ГЛУБОКИЕ.
+
+        Пример:
+        - Direktor (1-я линия) → Direktor (2-я линия) → Hamkor
+        Вернет только Direktor (2-я линия)
+        """
+
+        # Вспомогательная функция для рекурсивного поиска
+        def _find_deepest_strongest(node: Member, current_level: int) -> List[tuple[Member, int]]:
+            """
+            Возвращает список (подветка, уровень) самых глубоких сильных подветок.
+            """
+            result = []
+
+            # Проверяем, есть ли у этой ветки еще более сильные подветки
+            has_stronger_children = False
+            child_results = []
+
+            # Сначала проверяем всех детей
+            for child in node.team:
+                child_side = self._branch_side(child)
+                child_q = qualification_by_points(int(child_side))
+                node_side = self._branch_side(node)
+                node_q = qualification_by_points(int(node_side))
+
+                # Если у ребенка квалификация >= родителя, ищем у него
+                if child_q.min_points >= node_q.min_points:
+                    has_stronger_children = True
+                    child_results.extend(_find_deepest_strongest(child, current_level + 1))
+
+            # Если есть дети с такими же или лучшими квалификациями
+            if has_stronger_children:
+                # Находим максимальную квалификацию среди детей
+                max_child_qualification = None
+                for child, _ in child_results:
+                    child_side = self._branch_side(child)
+                    child_q = qualification_by_points(int(child_side))
+                    if max_child_qualification is None or child_q.min_points > max_child_qualification.min_points:
+                        max_child_qualification = child_q
+
+                # Оставляем только детей с максимальной квалификацией
+                filtered_children = []
+                for child, level in child_results:
+                    child_side = self._branch_side(child)
+                    child_q = qualification_by_points(int(child_side))
+                    if child_q.min_points == max_child_qualification.min_points:
+                        filtered_children.append((child, level))
+
+                return filtered_children
+            else:
+                # Если у этой ветки нет более сильных детей, это конечная сильная подветка
+                return [(node, current_level)]
+
+        # Запускаем поиск
+        deepest_branches = _find_deepest_strongest(branch, 0)
+
+        # Извлекаем только ветки (без уровней)
+        result = [branch for branch, level in deepest_branches]
+
+        return result
 
     def _branch_side(self, branch: Member) -> float:
         """Рекурсивно рассчитывает side volume ветки"""
@@ -73,95 +137,113 @@ class IncomeCalculator:
             member: Member,
             parent_qualification: Qualification,
             parent_side_volume: float,
-    ) -> tuple[float, List[BranchInfo]]:
+    ) -> tuple[float, List[BranchInfo], List[BreakdownItem]]:
         """
         Анализирует все ветки и собирает информацию о них.
-        Возвращает (total_go_money, branches_info)
+        Возвращает (total_go_money, branches_info, breakdown_items)
         """
         total_go_money = 0
-        branches_info = []
+        all_branches_info = []
+        breakdown_items = []
 
-        # Собственный side_volume родителя
-        own_side_volume = member.lo
+        # 1️⃣ С бокового балла (parent_side_volume)
+        if parent_side_volume > 0:
+            side_money = parent_side_volume * parent_qualification.team_percent * VERON_PRICE
+            total_go_money += side_money
 
-        # Сначала считаем деньги за собственный side_volume родителя
-        # (это часть side_volume, которая не принадлежит веткам)
-        own_side_money = own_side_volume * parent_qualification.team_percent * VERON_PRICE
-        total_go_money += own_side_money
-
-        # Добавляем информацию о "собственном side" родителя
-        own_branch_info = BranchInfo(
-            branch_id=0,  # 0 означает "собственный side родителя"
-            branch_qualification_by_gv=parent_qualification.name,
-            branch_qualification_by_side=parent_qualification.name,
-            lo=member.lo,
-            gv=own_side_volume,
-            side_volume=own_side_volume,
-            is_closed=False,
-            is_stronger_than_parent=False,
-            parent_earn_percent=parent_qualification.team_percent,
-            parent_earn_money=own_side_money,
-        )
-        branches_info.append(own_branch_info)
-
-        # Теперь анализируем все ветки
-        for branch in member.team:
-            # Базовые данные ветки
-            branch_id = branch.user_id
-            branch_lo = branch.lo
-            branch_gv = branch.group_volume()
-            branch_side = self._branch_side(branch)
-
-            # Квалификации
-            branch_side_q = qualification_by_points(int(branch_side))
-            branch_gv_q = qualification_by_points(int(branch_gv))
-
-            # Флаги
-            is_closed = (branch_side >= SIDE_VOLUME_THRESHOLD and branch_side_q.name != "Hamkor")
-            is_stronger_than_parent = branch_side_q.min_points >= parent_qualification.min_points
-
-            # Инициализируем переменные для расчета
-            parent_earn_percent = 0.0
-            parent_earn_money = 0.0
-
-            # Логика расчета денег родителя с этой ветки
-            if not is_closed and not is_stronger_than_parent:
-                # Для расчета используем квалификацию по side volume ветки
-                branch_q = branch_side_q
-
-                # Расчет процента, который получает родитель с этой ветки
-                parent_percent = parent_qualification.team_percent
-                branch_percent = branch_q.team_percent
-
-                # Разница процентов (родитель получает эту разницу)
-                parent_earn_percent = parent_percent - branch_percent
-
-                # Процент не может быть отрицательным
-                if parent_earn_percent > 0:
-                    # Базовый объем для расчета - side volume ветки
-                    base_volume = branch_side
-
-                    # Расчет денег с этой ветки
-                    parent_earn_money = base_volume * parent_earn_percent * VERON_PRICE
-                    total_go_money += parent_earn_money
-
-            # Собираем информацию о ветке
-            branch_info = BranchInfo(
-                branch_id=branch_id,
-                branch_qualification_by_gv=branch_gv_q.name,
-                branch_qualification_by_side=branch_side_q.name,
-                lo=branch_lo,
-                gv=branch_gv,
-                side_volume=branch_side,
-                is_closed=is_closed,
-                is_stronger_than_parent=is_stronger_than_parent,
-                parent_earn_percent=parent_earn_percent,
-                parent_earn_money=parent_earn_money,
+            breakdown_items.append(
+                BreakdownItem(
+                    description=f"С бокового балла – {parent_qualification.team_percent * 100:.0f}%",
+                    volume=parent_side_volume,
+                    percent=parent_qualification.team_percent,
+                    money=side_money
+                )
             )
 
-            branches_info.append(branch_info)
+        # 2️⃣ Анализируем все непосредственные ветки
+        for branch in member.team:
+            # Собираем информацию о всей ветке
+            branch_side = self._branch_side(branch)
+            branch_side_q = qualification_by_points(int(branch_side))
+            is_branch_stronger = branch_side_q.min_points >= parent_qualification.min_points
 
-        return total_go_money, branches_info
+            # Если вся ветка сильнее родителя - пропускаем
+            if is_branch_stronger:
+                continue
+
+            # Находим самые глубокие сильные ветки
+            deepest_strong_branches = self._find_strongest_sub_branches(branch)
+
+            if deepest_strong_branches:
+                # Группируем по квалификациям
+                qual_groups = {}
+                for strong_branch in deepest_strong_branches:
+                    strong_branch_side = self._branch_side(strong_branch)
+                    strong_branch_q = qualification_by_points(int(strong_branch_side))
+
+                    # Проверяем, что ветка слабее родителя
+                    if strong_branch_q.min_points >= parent_qualification.min_points:
+                        continue
+
+                    qual_name = strong_branch_q.name
+                    if qual_name not in qual_groups:
+                        qual_groups[qual_name] = []
+                    qual_groups[qual_name].append((strong_branch, strong_branch_side, strong_branch_q))
+
+                # Для каждой квалификации считаем сумму
+                for qual_name, branches_data in qual_groups.items():
+                    total_volume = 0
+                    percent = parent_qualification.team_percent - branches_data[0][2].team_percent
+
+                    if percent <= 0:
+                        continue
+
+                    for strong_branch, branch_side, branch_q in branches_data:
+                        is_closed = (branch_side >= SIDE_VOLUME_THRESHOLD and branch_q.name != "Hamkor")
+                        base_volume = strong_branch.lo if is_closed else branch_side
+                        total_volume += base_volume
+
+                    if total_volume > 0:
+                        money = total_volume * percent * VERON_PRICE
+                        total_go_money += money
+
+                        branch_count = len(branches_data)
+                        if branch_count == 1:
+                            strong_branch = branches_data[0][0]
+                            description = f"С {qual_name} (ID: {strong_branch.user_id}) – {percent * 100:.0f}%"
+                        else:
+                            description = f"С {branch_count} {qual_name} – {percent * 100:.0f}%"
+
+                        breakdown_items.append(
+                            BreakdownItem(
+                                description=description,
+                                volume=total_volume,
+                                percent=percent,
+                                money=money
+                            )
+                        )
+
+            # 3️⃣ Если нет сильных подветок, но сама ветка не Hamkor
+            elif branch_side_q.name != "Hamkor":
+                percent = parent_qualification.team_percent - branch_side_q.team_percent
+
+                if percent > 0:
+                    is_closed = (branch_side >= SIDE_VOLUME_THRESHOLD
+                                 and branch_side_q.name != "Hamkor")
+                    base_volume = branch.lo if is_closed else branch_side
+                    money = base_volume * percent * VERON_PRICE
+                    total_go_money += money
+
+                    breakdown_items.append(
+                        BreakdownItem(
+                            description=f"С {branch_side_q.name} (ID: {branch.user_id}) – {percent * 100:.0f}%",
+                            volume=base_volume,
+                            percent=percent,
+                            money=money
+                        )
+                    )
+
+        return total_go_money, all_branches_info, breakdown_items
 
     def _calculate_leader_money(
             self,
@@ -177,22 +259,30 @@ class IncomeCalculator:
             member: Member,
             qualification: Qualification,
             side_volume: float,
-    ) -> tuple[dict, List[BranchInfo]]:
+    ) -> tuple[dict, List[BranchInfo], IncomeBreakdown]:
         """Рассчитывает все денежные компоненты и собирает информацию о ветках"""
         lo = member.lo
 
         # Личный объем
         lo_money = lo * qualification.personal_percent * VERON_PRICE
+        personal_items = [
+            BreakdownItem(
+                description=f"Личный объем – {qualification.personal_percent * 100:.0f}%",
+                volume=lo,
+                percent=qualification.personal_percent,
+                money=lo_money
+            )
+        ]
 
-        # Групповой объем и информация о ветках
-        go_money, branches_info = self._analyze_branches(
+        # Групповой объем
+        go_money, branches_info, group_items = self._analyze_branches(
             member=member,
             parent_qualification=qualification,
             parent_side_volume=side_volume,
         )
 
         # Деньги за лидерство
-        leader_money = self._calculate_leader_money(member, qualification)
+        leader_money, leader_items = self._calculate_leader_money_with_breakdown(member, qualification)
 
         # Итоговые суммы
         total_money = lo_money + go_money + leader_money
@@ -206,7 +296,36 @@ class IncomeCalculator:
             "veron": veron_money,
         }
 
-        return money_data, branches_info
+        breakdown = IncomeBreakdown(
+            personal_items=personal_items,
+            group_items=group_items,
+            leader_items=leader_items,
+            total_money=total_money
+        )
+
+        return money_data, branches_info, breakdown
+
+    def _calculate_leader_money_with_breakdown(
+            self,
+            member: Member,
+            qualification: Qualification,
+    ) -> tuple[float, List[BreakdownItem]]:
+        """Рассчитывает деньги за лидерство с детализацией"""
+        strong_go = self._strong_branches_go(member, qualification)
+        leader_money = strong_go * qualification.mentor_percent * VERON_PRICE
+
+        leader_items = []
+        if strong_go > 0:
+            leader_items.append(
+                BreakdownItem(
+                    description=f"С сильных веток – {qualification.mentor_percent * 100:.0f}%",
+                    volume=strong_go,
+                    percent=qualification.mentor_percent,
+                    money=leader_money
+                )
+            )
+
+        return leader_money, leader_items
 
     def _determine_qualification(
             self,
@@ -242,7 +361,8 @@ class IncomeCalculator:
         qualification = qualification_by_points(int(points))
         return qualification, points
 
-    def calculate(self, member: Member) -> IncomeResponse:
+    def calculate(self, member: Member) -> tuple[IncomeResponse, IncomeBreakdown]:
+        """Рассчитывает доход и возвращает ответ с детализированным отчетом"""
         # Базовые объемы
         group_volume = member.group_volume()
         base_qualification = qualification_by_points(int(group_volume))
@@ -255,8 +375,8 @@ class IncomeCalculator:
             member, group_volume, side_volume
         )
 
-        # Деньги и информация о ветках
-        money, branches_info = self._calculate_money(
+        # Деньги, информация о ветках и детализация
+        money, branches_info, breakdown = self._calculate_money(
             member, qualification, side_volume
         )
 
@@ -267,7 +387,7 @@ class IncomeCalculator:
         total_money = int(round(money["total"]))
         veron_money = int(round(money["veron"]))
 
-        return IncomeResponse(
+        response = IncomeResponse(
             user_id=member.user_id,
             qualification=qualification.name,
             lo=member.lo,
@@ -286,3 +406,35 @@ class IncomeCalculator:
             total_income=float(total_money),
             branches_info=branches_info,
         )
+
+        return response, breakdown
+
+    def format_breakdown_report(self, breakdown: IncomeBreakdown) -> str:
+        """Форматирует детализированный отчет в текстовый вид"""
+        report_lines = ["Личный:"]
+
+        # Личные начисления
+        for item in breakdown.personal_items:
+            report_lines.append(
+                f"{item.volume:.0f} × {item.percent * 100:.0f}% × {VERON_PRICE} = {item.money:,.0f}"
+            )
+
+        report_lines.append("\nКомандный:")
+
+        # Групповые начисления
+        for item in breakdown.group_items:
+            report_lines.append(
+                f"{item.description} = {item.volume:.0f} × {item.percent * 100:.0f}% × {VERON_PRICE} = {item.money:,.0f}"
+            )
+
+        # Лидерские начисления
+        if breakdown.leader_items:
+            report_lines.append("\nЛидерский:")
+            for item in breakdown.leader_items:
+                report_lines.append(
+                    f"{item.description} = {item.volume:.0f} × {item.percent * 100:.0f}% × {VERON_PRICE} = {item.money:,.0f}"
+                )
+
+        report_lines.append(f"\nИТОГО: {breakdown.total_money:,.0f}")
+
+        return "\n".join(report_lines)

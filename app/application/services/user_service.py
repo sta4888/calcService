@@ -56,8 +56,13 @@ class UserService:
 
     async def get_status(self, user_id: int) -> dict:
         root_member = await self.repo.build_member_tree(user_id)
-        result = self.calculator.calculate(root_member)
-        return result.dict()
+        # result = self.calculator.calculate(root_member)
+        response, breakdown = self.calculator.calculate(root_member)
+
+        # Получаем отформатированный отчет
+        report = self.calculator.format_breakdown_report(breakdown)
+        print(report)
+        return response.dict()
 
     async def get_structure(self, user_id: int) -> dict:
         root_member = await self.repo.build_member_tree(user_id)
