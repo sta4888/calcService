@@ -23,3 +23,14 @@ class Member:
 
     def group_volume(self) -> float:
         return self.lo + sum(m.group_volume() for m in self.team)
+
+    def __repr__(self) -> str:
+        return (
+            f"Member("
+            f"user_id={self.user_id}, "
+            f"referrer_id={self.referrer_id}, "
+            f"lo={self.lo}, "
+            f"team_size={len(self.team)}"
+            f")"
+        )
+

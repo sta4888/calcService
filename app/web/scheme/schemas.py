@@ -46,6 +46,7 @@ class IncomeResponse(BaseModel):
     personal_money: int
     group_money: int
     leader_money: int
+    side_vol_money: int
     total_money: int
     veron: int
     total_income: int
