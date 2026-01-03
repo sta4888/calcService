@@ -259,10 +259,9 @@ class IncomeCalculator:
 
         # Личный объем
         lo_money = lo * qualification.personal_percent * VERON_PRICE
-        if lo < side_volume:
-            side_vol = side_volume * qualification.team_percent * VERON_PRICE
-        else:
-            side_vol = 0
+        side_vol = side_volume * qualification.team_percent * VERON_PRICE
+        print(f"side_vol = {side_vol}")
+
         personal_items = [
             BreakdownItem(
                 description=f"Личный объем – {qualification.personal_percent * 100:.0f}%",
@@ -283,7 +282,7 @@ class IncomeCalculator:
         leader_money, leader_items = self._calculate_leader_money_with_breakdown(member, qualification)
 
         # Итоговые суммы
-        total_money = lo_money + leader_money + side_vol + go_money
+        total_money = lo_money + leader_money + side_vol + (0 if go_money == side_vol else go_money)
         veron_money = lo * qualification.personal_percent
 
         money_data = {
@@ -486,8 +485,6 @@ class IncomeCalculator:
 
         # Для каждой ветки первого уровня
         strong_leafs_list = self.recursive_walk(member)
-        print(strong_leafs_list)
-        print(len(strong_leafs_list))
 
         if len(strong_leafs_list) == 0:
             gv = member.group_volume()
@@ -502,9 +499,9 @@ class IncomeCalculator:
                     branch_q = qualification_by_points(int(gv))
                     if parent_qualification.team_percent < branch_q.team_percent:
                         total_go_money += side_volume * parent_qualification.team_percent * VERON_PRICE
-                        continue
-                    percent_diff = parent_qualification.team_percent - branch_q.team_percent
-                    total_go_money += gv * percent_diff * VERON_PRICE
+                    else:
+                        percent_diff = parent_qualification.team_percent - branch_q.team_percent
+                        total_go_money += gv * percent_diff * VERON_PRICE
 
         return total_go_money, [], breakdown_items
 
@@ -598,9 +595,13 @@ class IncomeCalculator:
 if __name__ == "__main__":
     from tests.domain.factories import m
 
-    memb = m(1312, lo=500, team=[
-                m(1410, lo=1500),
-            ])
+    memb = m(1213, lo=500, team=[
+        m(1310, lo=500),
+        m(1311, lo=500),
+        m(1312, lo=500, team=[
+            m(1410, lo=1500)  # допустим >= SIDE_VOLUME_THRESHOLD
+        ]),
+    ])
 
     calculator = IncomeCalculator()
     res = calculator.calculate(memb)

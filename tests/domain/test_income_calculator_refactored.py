@@ -1,5 +1,4 @@
-from domain.models.member import Member, SIDE_VOLUME_THRESHOLD
-from domain.services.income_calculator import IncomeCalculator, VERON_PRICE
+from domain.services.income_calculator import IncomeCalculator
 
 from domain.value_objects.qualifications import qualification_by_points, QUALIFICATIONS
 
@@ -231,6 +230,68 @@ from tests.domain.factories import m
                 "branches_info": [],
             }
     ),
+    (
+            m(1213, lo=500, team=[
+                m(1310, lo=500),
+                m(1311, lo=500),
+                m(1312, lo=500, team=[
+                    m(1410, lo=1500)  # допустим >= SIDE_VOLUME_THRESHOLD
+                ]),
+            ]),
+            {
+                "user_id": 1213,
+                "qualification": "Direktor",  # минимальная квалификация
+                "lo": 500,
+                "go": 3500,
+                "side_volume": 500,
+                "points": 3500,  # ??????????? вообще ХЗ что это и для чего
+
+                # бонусы (проценты)
+                "personal_bonus": 0.40,
+                "structure_bonus": 0.45,
+                "mentor_bonus": 0.04,
+                "extra_bonus": 'Televizor smart-32',
+
+                # деньги
+                "personal_money": 1_400_000,
+                "group_money": 2_625_000 + 1_050_000,
+                "leader_money": 0,
+                "total_money": 6_650_000,
+                "veron": 500 * 0.40,
+                "total_income": 6_650_000,
+
+                # ветки
+                "branches_info": [],
+            }
+    ),
+    (
+            m(1210, lo=2000),
+            {
+                "user_id": 1210,
+                "qualification": "Menejer",  # минимальная квалификация
+                "lo": 2000,
+                "go": 2000,
+                "side_volume": 2000,
+                "points": 2000,
+
+                # бонусы (проценты)
+                "personal_bonus": 0.40,
+                "structure_bonus": 0.35,
+                "mentor_bonus": 0.03,
+                "extra_bonus": 'Changyutgich',
+
+                # деньги
+                "personal_money": 5600000,
+                "group_money": 4900000,
+                "leader_money": 0,
+                "total_money": 10500000,
+                "veron": 2000 * 0.40,
+                "total_income": 10500000,
+
+                # ветки
+                "branches_info": [],
+            }
+    ),
 ])
 def test_calculate_smoke(member, expect):
     calc = IncomeCalculator()
@@ -264,10 +325,6 @@ def test_calculate_smoke(member, expect):
 
 
 # endregion
-# fixme не корректный расчет данных о group_money
-
-# для того чтоб протестировать нам этот метод полностью, нам нужно протестировать методы что внутри
-# для этого нужно протестировать всего несколько методов по отдельности
 
 ##################################################
 ######## Тест общего ГО участника ################
@@ -636,410 +693,4 @@ def test_calculate_money(member, expect):
     )
 
     money, branches_info, breakdown = calc._calculate_money(member, qualification, side_volume)
-
-# ############################################################
-# ######################## СТАРЫЕ ТЕСТЫ ######################
-# ############################################################
-# region СТАРЫЕ ТЕСТЫ
-# @pytest.mark.parametrize(
-#     "side_volume, qualification_points, expect_money",
-#     [
-#         (0, 0, 0),
-#         (100, 0, 0),  # Hamkor
-#         (500, 500, 500 * 0.20 * VERON_PRICE),  # Mentor
-#         (1500, 1500, 1500 * 0.35 * VERON_PRICE),  # Menejer
-#     ],
-# )
-# def test_side_volume_income(side_volume, qualification_points, expect_money):
-#     calc = IncomeCalculator()
-#     qualification = qualification_by_points(qualification_points)
-#
-#     money, items = calc._side_volume_income(side_volume, qualification)
-#
-#     assert money == expect_money
-#
-#     if side_volume == 0:
-#         assert items == []
-#     else:
-#         assert len(items) == 1
-#         item = items[0]
-#
-#         assert item.volume == side_volume
-#         assert item.percent == qualification.team_percent
-#         assert item.money == expect_money
-#
-#
-# @pytest.mark.parametrize(
-#     "branch_lo, branch_side, branch_points, parent_points, expect_volume",
-#     [
-#         # Hamkor → всегда 0
-#         (100, 100, 0, 1500, 0),
-#
-#         # Обычная ветка, side < 500
-#         (200, 200, 0, 500, 200),
-#
-#         # Закрытая ветка → берём lo
-#         (300, 800, 500, 1500, 300),
-#     ],
-# )
-# def test_income_from_plain_branch(
-#         branch_lo,
-#         branch_side,
-#         branch_points,
-#         parent_points,
-#         expect_volume,
-# ):
-#     calc = IncomeCalculator()
-#
-#     branch = m(1, lo=branch_lo)
-#     parent_q = qualification_by_points(parent_points)
-#     branch_q = qualification_by_points(branch_points)
-#
-#     money, items = calc._income_from_plain_branch(
-#         branch=branch,
-#         branch_side=branch_side,
-#         branch_q=branch_q,
-#         parent_qualification=parent_q,
-#     )
-#
-#     if expect_volume == 0:
-#         assert money == 0
-#         assert items == []
-#         return
-#
-#     percent = parent_q.team_percent - branch_q.team_percent
-#     expect_money = expect_volume * percent * VERON_PRICE
-#
-#     assert money == expect_money
-#     assert len(items) == 1
-#     assert items[0].volume == expect_volume
-#     assert items[0].percent == percent
-#
-#
-# def test_analyze_branches_smoke():
-#     """
-#     Базовый smoke:
-#     1 родитель
-#     1 слабая ветка
-#     """
-#     member = m(
-#         1,
-#         lo=500,
-#         team=[
-#             m(2, lo=200),
-#         ],
-#     )
-#
-#     calc = IncomeCalculator()
-#     parent_q = qualification_by_points(500)
-#     parent_side = 500
-#
-#     total_money, branches_info, breakdown = calc._analyze_branches(
-#         member=member,
-#         parent_qualification=parent_q,
-#         parent_side_volume=parent_side,
-#     )
-#
-#     assert total_money > 0
-#     assert isinstance(breakdown, list)
-#     assert branches_info == []
-#
-#
-# ############################################################
-# ######################## СТАРЫЕ ТЕСТЫ ######################
-# ############################################################
-#
-# @pytest.mark.skip(reason="This test is currently good")
-# @pytest.mark.parametrize(
-#     "branch, expected",
-#     [
-#         # 1. Только LO
-#         (
-#                 m(1, lo=100),
-#                 100
-#         ),
-#
-#         # 2. Один ребенок Hamkor (учитывается)
-#         (
-#                 m(1, lo=100, team=[
-#                     m(2, lo=200)
-#                 ]),
-#                 300
-#         ),
-#
-#         # 3. Ребенок закрыт (SV >= threshold и не Hamkor)
-#         (
-#                 m(1, lo=100, team=[
-#                     m(2, lo=600)  # допустим >= SIDE_VOLUME_THRESHOLD
-#                 ]),
-#                 100
-#         ),
-#
-#         # 4. Глубокая рекурсия
-#         (
-#                 m(1, lo=100, team=[
-#                     m(2, lo=200, team=[
-#                         m(3, lo=150)
-#                     ])
-#                 ]),
-#                 450
-#         ),
-#         # 5 тест проверки с реальными данными
-#         (
-#                 m(1410, lo=1500),
-#                 1500
-#         ),
-#         # 6 тест проверки с реальными данными
-#         (
-#                 m(1312, lo=500, team=[
-#                     m(1410, lo=1500)  # допустим >= SIDE_VOLUME_THRESHOLD
-#                 ]),
-#                 500
-#         ),
-#         # 7 тест проверки с реальными данными Direktor 1
-#         (
-#                 m(1213, lo=500, team=[
-#                     m(1310, lo=500),
-#                     m(1311, lo=500),
-#                     m(1312, lo=500, team=[
-#                         m(1410, lo=1500)  # допустим >= SIDE_VOLUME_THRESHOLD
-#                     ]),
-#                 ]),
-#                 500
-#         ),
-#         # 8 тест проверки с реальными данными Direktor 2
-#         (
-#                 m(1101, lo=450, team=[
-#                     m(1210, lo=2000),
-#                     m(1212, lo=500),
-#                     m(1213, lo=500, team=[
-#                         m(1310, lo=500),
-#                         m(1311, lo=500),
-#                         m(1312, lo=500, team=[
-#                             m(1410, lo=1500)  # допустим >= SIDE_VOLUME_THRESHOLD
-#                         ]),
-#                     ]),
-#                     m(1211, lo=50, team=[
-#                         m(1301, lo=500),
-#                         m(1300, lo=200, team=[
-#                             m(1400, lo=500),
-#                             m(1401, lo=500),
-#                             m(1402, lo=300)
-#                         ])
-#                     ])
-#                 ]),
-#                 500
-#         ),
-#         (
-#                 m(1000, lo=100, team=[
-#                     m(1100, lo=100, team=[
-#                         m(1200, lo=1000),
-#                         m(1201, lo=1000),
-#                         m(1202, lo=1000),
-#                     ]),
-#                     m(1101, lo=450, team=[
-#                         m(1210, lo=2000),
-#                         m(1212, lo=500),
-#                         m(1213, lo=500, team=[
-#                             m(1310, lo=500),
-#                             m(1311, lo=500),
-#                             m(1312, lo=500, team=[
-#                                 m(1410, lo=1500)  # допустим >= SIDE_VOLUME_THRESHOLD
-#                             ]),
-#                         ]),
-#                         m(1211, lo=50, team=[
-#                             m(1301, lo=500),
-#                             m(1300, lo=200, team=[
-#                                 m(1400, lo=500),
-#                                 m(1401, lo=500),
-#                                 m(1402, lo=300)
-#                             ])
-#                         ])
-#                     ]),
-#                     m(1102, lo=100, team=[]),
-#                     m(1103, lo=100, team=[]),
-#                     m(1104, lo=1000, team=[]),
-#                     m(1105, lo=100, team=[]),
-#                 ]),
-#                 500
-#         ),
-#     ]
-# )
-# def test_branch_side(branch, expected):
-#     calc = IncomeCalculator()
-#     assert calc._branch_side(branch) == expected
-#
-#
-# @pytest.mark.parametrize(
-#     "member, parent_q_points, expected_go",
-#     [
-#         # 1. Нет сильных веток
-#         (
-#                 m(1, lo=0, team=[
-#                     m(2, lo=100),
-#                     m(3, lo=150),
-#                 ]),
-#                 500,
-#                 0
-#         ),
-#
-#         # 2. Одна сильная ветка
-#         (
-#                 m(1, lo=0, team=[
-#                     m(2, lo=600),
-#                     m(3, lo=100),
-#                 ]),
-#                 500,
-#                 600
-#         ),
-#
-#         # 3. Две сильные ветки
-#         (
-#                 m(1, lo=0, team=[
-#                     m(2, lo=600),
-#                     m(3, lo=700),
-#                 ]),
-#                 500,
-#                 1300
-#         ),
-#     ]
-# )
-# def test_strong_branches_go(member, parent_q_points, expected_go):
-#     calc = IncomeCalculator()
-#     parent_q = qualification_by_points(parent_q_points)
-#
-#     assert calc._strong_branches_go(member, parent_q) == expected_go
-#
-#
-# @pytest.mark.parametrize(
-#     "member, gv, sv, expected_points",
-#     [
-#         # 1. SV < threshold → берем SV
-#         (
-#                 m(1, lo=100),
-#                 1000,
-#                 400,
-#                 400
-#         ),
-#
-#         # 2. SV >= threshold и нет сильных веток → берем GV
-#         (
-#                 m(1, lo=100),
-#                 1000,
-#                 600,
-#                 1000
-#         ),
-#
-#         # 3. Есть сильная ветка → берем SV
-#         (
-#                 m(1, lo=100, team=[
-#                     m(2, lo=700)
-#                 ]),
-#                 1000,
-#                 600,
-#                 600
-#         ),
-#     ]
-# )
-# def test_determine_qualification(member, gv, sv, expected_points):
-#     calc = IncomeCalculator()
-#     q, points = calc._determine_qualification(member, gv, sv)
-#
-#     assert points == expected_points
-#
-#
-# @pytest.mark.parametrize("member, expect", [
-#     (Member(user_id=1, lo=100), 100),
-#     (Member(user_id=1, lo=100, team=[
-#         m(2, lo=600),
-#     ]), 700),
-#     (Member(
-#         user_id=1,
-#         lo=100,
-#         team=[
-#             Member(
-#                 user_id=2,
-#                 lo=200,
-#                 team=[
-#                     Member(user_id=5, lo=50),
-#                     Member(user_id=6, lo=50),
-#                 ]
-#             ),
-#             Member(
-#                 user_id=3,
-#                 lo=200,
-#                 team=[
-#                     Member(user_id=7, lo=50),
-#                     Member(user_id=8, lo=50),
-#                 ]
-#             ),
-#             Member(
-#                 user_id=4,
-#                 lo=200,
-#                 team=[
-#                     Member(user_id=9, lo=50),
-#                     Member(user_id=10, lo=50),
-#                 ]
-#             ),
-#         ]
-#     ), 1000),
-#     (Member(
-#         user_id=1,
-#         lo=0,
-#         team=[
-#             Member(user_id=2, lo=0),
-#             Member(user_id=3, lo=0),
-#         ]
-#     ), 0)
-# ])
-# def test_group_volume_single_member(member, expect):
-#     assert member.group_volume() == expect
-#
-# @pytest.mark.parametrize("member, expect", [
-#     (Member(user_id=1, lo=100), 100),
-#     (m(
-#         1, lo=100, team=[
-#             m(2, lo=50),
-#             m(3, lo=50),
-#         ]
-#     ), 200),
-#     (m(
-#         1, lo=100, team=[
-#             m(2, lo=50, team=[
-#                 m(3, lo=25)
-#             ])
-#         ]
-#     ),175),
-#     (m(
-#         1, lo=100, team=[
-#             m(2, lo=600),
-#             m(3, lo=50),
-#         ]
-#     ),150),
-# ])
-# def test_branch_side_single_member(member, expect):
-#     calc = IncomeCalculator()
-#     assert calc._branch_side(member) == expect
-#
-#
-# @pytest.mark.parametrize(
-#     "parent_lo, branches, parent_points, expected",
-#     [
-#         (
-#             100,
-#             [
-#                 m(2, lo=600),  # закрыл статус
-#                 m(3, lo=300),  # не закрыл
-#             ],
-#             500,
-#             400,
-#         ),
-#     ]
-# )
-# def test_side_volume(parent_lo, branches, parent_points, expected):
-#     parent = m(1, lo=parent_lo, team=branches)
-#     parent_q = qualification_by_points(parent_points)
-#
-#     calc = IncomeCalculator()
-#     assert calc._calculate_side_volume(parent, parent_q) == expected
 # endregion

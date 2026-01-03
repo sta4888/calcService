@@ -35,10 +35,10 @@ class BranchInfo(BaseModel):
 class IncomeResponse(BaseModel):
     user_id: int
     qualification: str
-    lo: int
-    go: int
-    side_volume: int
-    points: int
+    lo: float
+    go: float
+    side_volume: float
+    points: float
     personal_bonus: float
     structure_bonus: float
     mentor_bonus: float
@@ -48,8 +48,8 @@ class IncomeResponse(BaseModel):
     leader_money: int
     side_vol_money: int
     total_money: int
-    veron: int
-    total_income: int
+    veron: float
+    total_income: float
     branches_info: List[BranchInfo]  # НОВОЕ ПОЛЕ
 
 
