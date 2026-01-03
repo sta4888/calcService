@@ -193,11 +193,39 @@ from tests.domain.factories import m
 
                 # деньги
                 "personal_money": 280_000,
-                "group_money": 17_955_000,
+                "group_money": 15750000,
                 "leader_money": 0,
                 "total_money": 17_955_000,
                 "veron": 100 * 0.40,
                 "total_income": 17_955_000,
+
+                # ветки
+                "branches_info": [],
+            }
+    ),
+    (
+            m(1200, lo=1000),
+            {
+                "user_id": 1200,
+                "qualification": "Mentor",  # минимальная квалификация
+                "lo": 1000,
+                "go": 1000,
+                "side_volume": 1000,
+                "points": 1000,  # ??????????? вообще ХЗ что это и для чего
+
+                # бонусы (проценты)
+                "personal_bonus": 0.40,
+                "structure_bonus": 0.2,
+                "mentor_bonus": 0.02,
+                "extra_bonus": 'Par dazmol',
+
+                # деньги
+                "personal_money": 2_800_000,
+                "group_money": 1_400_000,
+                "leader_money": 0,
+                "total_money": 4_200_000,
+                "veron": 1000 * 0.40,
+                "total_income": 4_200_000,
 
                 # ветки
                 "branches_info": [],
@@ -225,7 +253,7 @@ def test_calculate_smoke(member, expect):
 
     # деньги
     assert response.personal_money == expect["personal_money"]
-    # assert response.group_money == expect["group_money"]
+    assert response.group_money == expect["group_money"]
     assert response.leader_money == expect["leader_money"]
     assert response.total_money == expect["total_money"]
     assert response.veron == expect["veron"]
@@ -233,6 +261,8 @@ def test_calculate_smoke(member, expect):
 
     # ветки
     # assert response.branches_info == expect["branches_info"]
+
+
 # endregion
 # fixme не корректный расчет данных о group_money
 
@@ -317,6 +347,8 @@ def test_calculate_smoke(member, expect):
 ])
 def test_group_volume(member, expect):
     assert member.group_volume() == expect
+
+
 # endregion
 
 ##################################################
@@ -403,7 +435,6 @@ def test_qualification_by_points(member, expect):
 # endregion
 
 
-
 ##################################################
 ######## Тест проверки бокового объема ###########
 ##################################################
@@ -485,6 +516,8 @@ def test_side_volume(member, expect):
     group_volume = member.group_volume()
     base_qualification = qualification_by_points(int(group_volume))
     assert calc.calculate_side_volume(member, base_qualification) == expect
+
+
 # endregion
 
 #############################################################
@@ -493,48 +526,20 @@ def test_side_volume(member, expect):
 # region тест проверки определенности квалификации ❓
 @pytest.mark.parametrize("member, expect", [
     (
-        m(1, lo=100),
-        {"points": 100, "qualification": qualification_by_points(100)}
+            m(1, lo=100),
+            {"points": 100, "qualification": qualification_by_points(100)}
     ),
     (
-        m(1410, lo=1500),
-        {"points": 1500, "qualification": qualification_by_points(1500)}
-    ),
-    (
-        m(1312, lo=500, team=[
             m(1410, lo=1500),
-        ]),
-        {"points": 500, "qualification": qualification_by_points(500)}
+            {"points": 1500, "qualification": qualification_by_points(1500)}
     ),
     (
-        m(1101, lo=450, team=[
-            m(1210, lo=2000),
-            m(1212, lo=500),
-            m(1213, lo=500, team=[
-                m(1310, lo=500),
-                m(1311, lo=500),
-                m(1312, lo=500, team=[
-                    m(1410, lo=1500)
-                ]),
+            m(1312, lo=500, team=[
+                m(1410, lo=1500),
             ]),
-            m(1211, lo=50, team=[
-                m(1301, lo=500),
-                m(1300, lo=200, team=[
-                    m(1400, lo=500),
-                    m(1401, lo=500),
-                    m(1402, lo=300)
-                ])
-            ])
-        ]),
-        {"points": 8500, "qualification": qualification_by_points(8500)}
+            {"points": 500, "qualification": qualification_by_points(500)}
     ),
     (
-        m(1000, lo=100, team=[
-            m(1100, lo=100, team=[
-                m(1200, lo=1000),
-                m(1201, lo=1000),
-                m(1202, lo=1000),
-            ]),
             m(1101, lo=450, team=[
                 m(1210, lo=2000),
                 m(1212, lo=500),
@@ -554,15 +559,43 @@ def test_side_volume(member, expect):
                     ])
                 ])
             ]),
-            m(1102, lo=100, team=[]),
-            m(1103, lo=100, team=[]),
-            m(1104, lo=1000, team=[]),
-            m(1105, lo=100, team=[]),
-        ]),
-        {
-            "points": 13000,
-            "qualification": qualification_by_points(13000)
-        }
+            {"points": 8500, "qualification": qualification_by_points(8500)}
+    ),
+    (
+            m(1000, lo=100, team=[
+                m(1100, lo=100, team=[
+                    m(1200, lo=1000),
+                    m(1201, lo=1000),
+                    m(1202, lo=1000),
+                ]),
+                m(1101, lo=450, team=[
+                    m(1210, lo=2000),
+                    m(1212, lo=500),
+                    m(1213, lo=500, team=[
+                        m(1310, lo=500),
+                        m(1311, lo=500),
+                        m(1312, lo=500, team=[
+                            m(1410, lo=1500)
+                        ]),
+                    ]),
+                    m(1211, lo=50, team=[
+                        m(1301, lo=500),
+                        m(1300, lo=200, team=[
+                            m(1400, lo=500),
+                            m(1401, lo=500),
+                            m(1402, lo=300)
+                        ])
+                    ])
+                ]),
+                m(1102, lo=100, team=[]),
+                m(1103, lo=100, team=[]),
+                m(1104, lo=1000, team=[]),
+                m(1105, lo=100, team=[]),
+            ]),
+            {
+                "points": 13000,
+                "qualification": qualification_by_points(13000)
+            }
     ),
 ])
 def test_determine_qualification(member, expect):
@@ -580,6 +613,8 @@ def test_determine_qualification(member, expect):
 
     assert points == expect["points"]
     assert qualification == expect["qualification"]
+
+
 # endregion
 
 
@@ -601,7 +636,6 @@ def test_calculate_money(member, expect):
     )
 
     money, branches_info, breakdown = calc._calculate_money(member, qualification, side_volume)
-
 
 # ############################################################
 # ######################## СТАРЫЕ ТЕСТЫ ######################
