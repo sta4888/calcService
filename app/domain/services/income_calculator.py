@@ -359,7 +359,7 @@ class IncomeCalculator:
         qualification = qualification_by_points(int(points))
         return qualification, points
 
-    def calculate(self, member: Member) -> tuple[IncomeResponse, IncomeBreakdown]:
+    def calculate(self, member: Member) -> IncomeResponse:
         """Рассчитывает доход и возвращает ответ с детализированным отчетом"""
         # Базовые объемы
         group_volume = member.group_volume()
@@ -407,7 +407,7 @@ class IncomeCalculator:
             branches_info=branches_info,
         )
 
-        return response, breakdown
+        return response
 
     def format_breakdown_report(self, breakdown: IncomeBreakdown) -> str:
         """Форматирует детализированный отчет в текстовый вид"""

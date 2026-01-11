@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from application.services.user_service import UserService
 from domain.repositories.member_repository import MemberRepository
-from web.scheme.schemas import ApiResponse, AddLORequest, MemberStatus
+from web.scheme.schemas import ApiResponse, AddLORequest, MemberStatus, IncomeResponse
 from web.scheme.user import NewUserRequest, CreateUserResponse, AddLOResponse, SubLOResponse, MemberTreeResponse
 
 user = APIRouter(
@@ -78,7 +78,7 @@ async def sub_lo(
     "/{user_id}/status",
     summary="Получить статус пользователя",
     description="Возвращает текущую квалификацию и обороты пользователя",
-    response_model=ApiResponse[MemberStatus],
+    response_model=ApiResponse[IncomeResponse],
 )
 async def user_status(
         user_id: int,
