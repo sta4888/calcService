@@ -9,8 +9,11 @@ from domain.exceptions import DomainError
 from web.routers.api import calculate
 from web.routers.user import user
 
-app = FastAPI()
-
+app = FastAPI(
+    title="MLM Income API",
+    description="API для расчёта доходов, квалификаций и структуры сети",
+    version="1.0.0",
+)
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -19,6 +22,7 @@ app.mount(
     StaticFiles(directory=BASE_DIR / "static"),
     name="static",
 )
+
 
 @app.get("/", response_class=HTMLResponse)
 async def index():

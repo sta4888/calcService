@@ -1,10 +1,13 @@
 from fastapi import APIRouter, Depends
 from application.services.user_service import UserService
 from domain.repositories.member_repository import MemberRepository
-from web.scheme.schemas import ApiResponse, AddLORequest
-from web.scheme.user import NewUserRequest
+from web.scheme.schemas import ApiResponse, AddLORequest, MemberStatus
+from web.scheme.user import NewUserRequest, CreateUserResponse, AddLOResponse, SubLOResponse, MemberTreeResponse
 
-user = APIRouter()
+user = APIRouter(
+    prefix="/users",
+    tags=["Users"],
+)
 
 
 def get_user_service():
@@ -12,7 +15,21 @@ def get_user_service():
     return UserService(repo)
 
 
-@user.post("/users")
+@user.post(
+    "",
+    summary="Создать нового пользователя",
+    description="""
+    Создаёт нового участника MLM-сети.
+
+    - user_id должен быть уникальным
+    - referrer_id — необязательный (корень сети)
+    """,
+    response_model=ApiResponse[CreateUserResponse],
+    responses={
+        200: {"description": "Пользователь успешно создан"},
+        400: {"description": "Некорректные данные"},
+    },
+)
 async def create_user(
         payload: NewUserRequest,
         service: UserService = Depends(get_user_service),
@@ -21,7 +38,12 @@ async def create_user(
     return ApiResponse(error=False, data={"user_id": member.user_id})
 
 
-@user.post("/users/{user_id}/lo/add")
+@user.post(
+    "/{user_id}/lo/add",
+    summary="Добавить личный оборот (LO)",
+    description="Увеличивает личный оборот пользователя",
+    response_model=ApiResponse[AddLOResponse],
+)
 async def add_lo(
         user_id: int,
         payload: AddLORequest,
@@ -34,7 +56,12 @@ async def add_lo(
     )
 
 
-@user.post("/users/{user_id}/lo/subtract")
+@user.post(
+    "/{user_id}/lo/subtract",
+    summary="Уменьшить личный оборот (LO)",
+    description="Уменьшает личный оборот пользователя",
+    response_model=ApiResponse[SubLOResponse],
+)
 async def sub_lo(
         user_id: int,
         payload: AddLORequest,
@@ -47,13 +74,26 @@ async def sub_lo(
     )
 
 
-@user.get("/users/{user_id}/status")
-async def user_status(user_id: int, service: UserService = Depends(get_user_service)):
+@user.get(
+    "/{user_id}/status",
+    summary="Получить статус пользователя",
+    description="Возвращает текущую квалификацию и обороты пользователя",
+    response_model=ApiResponse[MemberStatus],
+)
+async def user_status(
+        user_id: int,
+        service: UserService = Depends(get_user_service)
+):
     result = await service.get_status(user_id)
     return ApiResponse(error=False, data=result)
 
 
-@user.get("/users/{user_id}/structure")
+@user.get(
+    "/{user_id}/structure",
+    summary="Получить структуру пользователя",
+    description="Возвращает дерево структуры MLM",
+    response_model=ApiResponse[MemberTreeResponse],
+)
 async def user_structure(
         user_id: int,
         service: UserService = Depends(get_user_service),
