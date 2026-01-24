@@ -260,7 +260,7 @@ class IncomeCalculator:
         # Личный объем
         lo_money = lo * qualification.personal_percent * VERON_PRICE
         side_vol = side_volume * qualification.team_percent * VERON_PRICE
-        print(f"side_vol = {side_vol}")
+        # print(f"side_vol = {side_vol}")
 
         personal_items = [
             BreakdownItem(

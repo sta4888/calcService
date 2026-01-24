@@ -18,8 +18,10 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(
         env_file=".env",
-        extra="forbid",  # ← пусть будет строго
+        extra="ignore",  # ← пусть будет строго
     )
+
+
 
 
 settings = Settings()

@@ -34,7 +34,7 @@ class MemberTreeResponse(BaseModel):
     )
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 MemberTreeResponse.update_forward_refs()

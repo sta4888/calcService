@@ -6,7 +6,7 @@ from core.settings import settings
 # Создаём асинхронный движок
 engine = create_async_engine(
     settings.database_url,
-    echo=True,  # для логов SQL
+    echo=False,  # для логов SQL
     future=True,
 )
 

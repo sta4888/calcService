@@ -7,9 +7,8 @@ services:
     restart: always
     ports:
       - "8000:8000"
-    environment:
-      - DATABASE_URL=${DATABASE_URL}
-      - RABBITMQ_URL=${RABBITMQ_URL}
+    env_file:
+      - .env
     depends_on:
       - db
       - rabbitmq
@@ -22,10 +21,8 @@ services:
     image: postgres:16
     container_name: calcservice_db
     restart: always
-    environment:
-      - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    env_file:
+      - .env
     ports:
       - "5432:5432"
     volumes:
@@ -39,9 +36,8 @@ services:
     restart: always
     ports:
       - "8888:80"
-    environment:
-      PGADMIN_DEFAULT_EMAIL: test@te.st
-      PGADMIN_DEFAULT_PASSWORD: test
+    env_file:
+      - .env
     volumes:
       - pgadmin_data:/var/lib/pgadmin
     networks:
@@ -54,9 +50,8 @@ services:
     ports:
       - "5672:5672"     # AMQP
       - "15672:15672"   # UI
-    environment:
-      - RABBITMQ_DEFAULT_USER:${RABBITMQ_USER}
-      - RABBITMQ_DEFAULT_PASS:${RABBITMQ_PASS}
+    env_file:
+      - .env
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     networks:
