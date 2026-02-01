@@ -19,7 +19,7 @@ RUN pip install --no-cache-dir .
 
 # Healthcheck (FastAPI)
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
-  CMD python -c "import socket; s=socket.socket(); s.connect(('localhost', 8000))"
+  CMD python -c "import socket; s=socket.socket(); s.connect(('localhost', 8001))"
 
 # FastAPI dev (новый CLI)
-CMD ["fastapi", "dev", "app/main.py", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["fastapi", "dev", "app/main.py", "--host", "0.0.0.0", "--port", "8001"]
