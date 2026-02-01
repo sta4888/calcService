@@ -14,10 +14,7 @@ services:
     volumes:
       - .:/app
     networks:
-      calc_net:
-      gnet:
-        aliases:
-          - calcservice
+      - calc_net
 
   db:
     image: postgres:16
@@ -67,7 +64,3 @@ volumes:
 networks:
   calc_net:
     driver: bridge
-  gnet:
-    external: true
-    name: shared_gnet
-
