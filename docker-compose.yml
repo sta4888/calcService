@@ -35,8 +35,10 @@ services:
     restart: always
     ports:
       - "8888:80"
-    env_file:
-      - .env
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: strong_password_123
+
     volumes:
       - pgadmin_data:/var/lib/pgadmin
     networks:
