@@ -2,245 +2,509 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>User Structure</title>
-
+    <title>MLM Structure</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body {
-            margin: 0;
-            font-family: Arial, sans-serif;
-            background: #f7f7f7;
+        :root {
+            --bg: #0d0f14;
+            --surface: #161920;
+            --border: #2a2d38;
+            --accent: #4f9cf9;
+            --accent2: #a78bfa;
+            --text: #e2e8f0;
+            --muted: #64748b;
+            --low: #1e2433;
+            --low-border: #3a4060;
+            --mid: #132033;
+            --mid-border: #2563eb;
+            --good: #0f2318;
+            --good-border: #16a34a;
+            --top: #221a07;
+            --top-border: #d97706;
         }
 
-        h2 {
-            padding: 10px 16px;
-            margin: 0;
-            background: #222;
-            color: #fff;
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Manrope', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
         }
+
+        header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 14px 24px;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        header h1 {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 15px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            color: var(--accent);
+            text-transform: uppercase;
+        }
+
+        .legend {
+            display: flex;
+            gap: 14px;
+            margin-left: auto;
+            align-items: center;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            color: var(--muted);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 2px;
+        }
+
+        .legend-dot.low  { background: #3a4060; }
+        .legend-dot.mid  { background: #2563eb; }
+        .legend-dot.good { background: #16a34a; }
+        .legend-dot.top  { background: #d97706; }
 
         #viewport {
-            width: 100%;
-            height: calc(100vh - 50px);
+            flex: 1;
             overflow: auto;
-            background: #fff;
+            position: relative;
         }
 
-        svg {
-            width: 100%;
-            height: 100%;
+        #loader {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            background: var(--bg);
+            z-index: 10;
         }
 
-        .node {
-            fill: #ffffff;
-            stroke: #333;
-            stroke-width: 1.5;
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
         }
 
-        .label {
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .loader-text {
+            font-family: 'JetBrains Mono', monospace;
             font-size: 12px;
-            text-anchor: middle;
-            dominant-baseline: middle;
+            color: var(--muted);
+        }
+
+        svg { display: block; }
+
+        /* Node cards */
+        .node-card {
+            cursor: default;
+        }
+
+        .node-card:hover .card-body {
+            filter: brightness(1.15);
+        }
+
+        .card-body {
+            transition: filter 0.15s;
+        }
+
+        /* Tooltip */
+        #tooltip {
+            position: fixed;
+            background: #1e2433;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 14px 16px;
+            font-size: 12px;
             pointer-events: none;
+            z-index: 100;
+            display: none;
+            min-width: 200px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
         }
 
-        .link {
-            stroke: #999;
-            stroke-width: 1.2;
-        }
-
-        .node-box {
-            fill: #ffffff;
-            stroke: #333;
-            stroke-width: 1.4;
-            rx: 10;
-            ry: 10;
-        }
-
-        .node-low {
-            fill: #f0f0f0;
-        }
-
-        .node-mid {
-            fill: #d0e8ff;
-        }
-
-        .node-good {
-            fill: #d6f5d6;
-        }
-
-        .node-top {
-            fill: #ffe9a8;
-        }
-
-        .label-id {
+        #tooltip .tt-title {
+            font-family: 'JetBrains Mono', monospace;
             font-size: 13px;
-            font-weight: bold;
-            text-anchor: middle;
+            font-weight: 700;
+            color: var(--accent);
+            margin-bottom: 10px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 8px;
         }
 
-        .label-lo {
+        #tooltip .tt-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+            margin: 4px 0;
+            color: var(--text);
+        }
+
+        #tooltip .tt-label {
+            color: var(--muted);
             font-size: 11px;
-            text-anchor: middle;
-            fill: #555;
         }
 
-        .link {
-            stroke: #bbb;
-            stroke-width: 1.2;
+        #tooltip .tt-val {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+            font-size: 11px;
         }
 
+        #tooltip .tt-qual {
+            text-align: center;
+            margin-top: 8px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            background: rgba(79,156,249,0.15);
+            color: var(--accent);
+        }
     </style>
 </head>
-
 <body>
 
-<h2>MLM Structure</h2>
+<header>
+    <h1>⬡ MLM Structure</h1>
+    <div class="legend">
+        <div class="legend-item"><div class="legend-dot low"></div> LO &lt; 100</div>
+        <div class="legend-item"><div class="legend-dot mid"></div> LO 100–499</div>
+        <div class="legend-item"><div class="legend-dot good"></div> LO 500–999</div>
+        <div class="legend-item"><div class="legend-dot top"></div> LO 1000+</div>
+    </div>
+</header>
 
 <div id="viewport">
+    <div id="loader">
+        <div class="spinner"></div>
+        <div class="loader-text">Загрузка данных...</div>
+    </div>
     <svg id="tree"></svg>
 </div>
 
+<div id="tooltip"></div>
+
 <script>
-    /* ===================== API ===================== */
+const BASE = 'http://45.130.148.146:8001';
 
-    async function fetchTree(userId) {
-        const response = await fetch(`/user/users/${userId}/structure`);
-        const json = await response.json();
+/* ===================== API ===================== */
+async function fetchTree(userId) {
+    const r = await fetch(`${BASE}/user/users/${userId}/structure`);
+    const j = await r.json();
+    if (j.error) throw new Error('API error');
+    return j.data;
+}
 
-        if (json.error) {
-            throw new Error("API returned error");
-        }
+async function fetchStatus(userId) {
+    try {
+        const r = await fetch(`${BASE}/user/users/${userId}/status`);
+        const j = await r.json();
+        return j.error ? null : j.data;
+    } catch { return null; }
+}
 
-        return json.data;
+/* ===================== COLLECT ALL IDS ===================== */
+function collectNodes(node, arr = []) {
+    arr.push(node);
+    (node.team || []).forEach(c => collectNodes(c, arr));
+    return arr;
+}
+
+/* ===================== LAYOUT ===================== */
+function countLeaves(node) {
+    if (!node.team || node.team.length === 0) return 1;
+    return node.team.reduce((s, c) => s + countLeaves(c), 0);
+}
+
+function maxDepth(node, d = 0) {
+    if (!node.team || node.team.length === 0) return d;
+    return Math.max(...node.team.map(c => maxDepth(c, d + 1)));
+}
+
+function layout(node, levelY, state) {
+    node.y = levelY;
+    if (!node.team || node.team.length === 0) {
+        state.x += state.gapX;
+        node.x = state.x;
+        return;
     }
+    node.team.forEach(c => layout(c, levelY + state.gapY, state));
+    node.x = (node.team[0].x + node.team[node.team.length - 1].x) / 2;
+}
 
-    /* ===================== UTILS ===================== */
+/* ===================== COLOR ===================== */
+function loStyle(lo) {
+    if (lo >= 1000) return { fill: '#2a1e06', stroke: '#d97706' };
+    if (lo >= 500)  return { fill: '#0b1f12', stroke: '#16a34a' };
+    if (lo >= 100)  return { fill: '#0c1829', stroke: '#2563eb' };
+    return              { fill: '#14182a', stroke: '#3a4060' };
+}
 
-    function countLeaves(node) {
-        if (!node.team || node.team.length === 0) return 1;
-        return node.team.reduce((sum, c) => sum + countLeaves(c), 0);
-    }
+function loTextColor(lo) {
+    if (lo >= 1000) return '#fbbf24';
+    if (lo >= 500)  return '#4ade80';
+    if (lo >= 100)  return '#60a5fa';
+    return '#94a3b8';
+}
 
-    function maxDepth(node, depth = 0) {
-        if (!node.team || node.team.length === 0) return depth;
-        return Math.max(...node.team.map(c => maxDepth(c, depth + 1)));
-    }
+/* ===================== SVG HELPERS ===================== */
+function svgEl(tag, attrs) {
+    const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+    Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, v));
+    return el;
+}
 
-    /* ===================== LAYOUT ===================== */
+function svgText(x, y, cls, content, extra = {}) {
+    const t = svgEl('text', { x, y, class: cls, ...extra });
+    t.textContent = content;
+    return t;
+}
 
-    function layout(node, levelY, state) {
-        node.y = levelY;
-
-        if (!node.team || node.team.length === 0) {
-            state.x += state.gapX;
-            node.x = state.x;
-            return;
-        }
-
-        node.team.forEach(child =>
-            layout(child, levelY + state.gapY, state)
-        );
-
-        node.x = (
-            node.team[0].x +
-            node.team[node.team.length - 1].x
-        ) / 2;
-    }
-
-    /* ===================== DRAW ===================== */
-
-    function drawLinks(node, svg) {
-        if (!node.team) return;
-
-        node.team.forEach(child => {
-            const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-            line.setAttribute("x1", node.x);
-            line.setAttribute("y1", node.y);
-            line.setAttribute("x2", child.x);
-            line.setAttribute("y2", child.y);
-            line.setAttribute("class", "link");
-            svg.appendChild(line);
-
-            drawLinks(child, svg);
+/* ===================== DRAW ===================== */
+function drawLinks(node, svg) {
+    (node.team || []).forEach(child => {
+        const path = svgEl('path', {
+            d: `M${node.x},${node.y} C${node.x},${(node.y + child.y) / 2} ${child.x},${(node.y + child.y) / 2} ${child.x},${child.y}`,
+            fill: 'none',
+            stroke: '#2a2d38',
+            'stroke-width': '1.5'
         });
-    }
+        svg.appendChild(path);
+        drawLinks(child, svg);
+    });
+}
 
-    function drawNodes(node, svg) {
-        const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+const W = 110, H = 68;
 
-        const width = 90;
-        const height = 50;
+function drawNodes(node, svg, statusMap) {
+    const st = statusMap[node.user_id] || {};
+    const style = loStyle(node.lo);
+    const textColor = loTextColor(node.lo);
 
-        const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-        rect.setAttribute("x", node.x - width / 2);
-        rect.setAttribute("y", node.y - height / 2);
-        rect.setAttribute("width", width);
-        rect.setAttribute("height", height);
-        rect.setAttribute("class", `node-box ${loClass(node.lo)}`);
+    const g = svgEl('g', { class: 'node-card', 'data-id': node.user_id });
 
-        const textId = document.createElementNS("http://www.w3.org/2000/svg", "text");
-        textId.setAttribute("x", node.x);
-        textId.setAttribute("y", node.y - 6);
-        textId.setAttribute("class", "label-id");
-        textId.textContent = `ID: ${node.user_id}`;
+    // Card background
+    const rect = svgEl('rect', {
+        x: node.x - W/2, y: node.y - H/2,
+        width: W, height: H,
+        rx: 8, ry: 8,
+        fill: style.fill,
+        stroke: style.stroke,
+        'stroke-width': '1.5',
+        class: 'card-body'
+    });
 
-        const textLo = document.createElementNS("http://www.w3.org/2000/svg", "text");
-        textLo.setAttribute("x", node.x);
-        textLo.setAttribute("y", node.y + 12);
-        textLo.setAttribute("class", "label-lo");
-        textLo.textContent = `LO: ${node.lo}`;
+    // Top accent line
+    const accent = svgEl('rect', {
+        x: node.x - W/2 + 1, y: node.y - H/2 + 1,
+        width: W - 2, height: 3,
+        rx: 7,
+        fill: style.stroke,
+        class: 'card-body'
+    });
 
-        g.appendChild(rect);
-        g.appendChild(textId);
-        g.appendChild(textLo);
-        svg.appendChild(g);
+    // ID
+    const idText = svgEl('text', {
+        x: node.x, y: node.y - 20,
+        'text-anchor': 'middle',
+        fill: '#e2e8f0',
+        'font-family': 'JetBrains Mono, monospace',
+        'font-size': '11',
+        'font-weight': '700'
+    });
+    idText.textContent = `#${node.user_id}`;
 
-        if (node.team) {
-            node.team.forEach(child => drawNodes(child, svg));
-        }
-    }
+    // Qualification badge
+    const qual = st.qualification || '—';
+    const qualText = svgEl('text', {
+        x: node.x, y: node.y - 5,
+        'text-anchor': 'middle',
+        fill: '#94a3b8',
+        'font-family': 'Manrope, sans-serif',
+        'font-size': '9',
+        'font-weight': '600',
+        'letter-spacing': '0.04em'
+    });
+    qualText.textContent = qual.toUpperCase();
 
+    // LO
+    const loLabel = svgEl('text', {
+        x: node.x - 22, y: node.y + 14,
+        'text-anchor': 'middle',
+        fill: '#64748b',
+        'font-family': 'Manrope, sans-serif',
+        'font-size': '8'
+    });
+    loLabel.textContent = 'LO';
 
-    function loClass(lo) {
-        if (lo >= 1000) return "node-top";
-        if (lo >= 500) return "node-good";
-        if (lo >= 100) return "node-mid";
-        return "node-low";
-    }
+    const loVal = svgEl('text', {
+        x: node.x - 22, y: node.y + 25,
+        'text-anchor': 'middle',
+        fill: textColor,
+        'font-family': 'JetBrains Mono, monospace',
+        'font-size': '10',
+        'font-weight': '700'
+    });
+    loVal.textContent = node.lo;
 
+    // Divider
+    const div = svgEl('line', {
+        x1: node.x, y1: node.y + 8,
+        x2: node.x, y2: node.y + 28,
+        stroke: '#2a2d38',
+        'stroke-width': '1'
+    });
 
-    /* ===================== RENDER ===================== */
+    // GO
+    const goLabel = svgEl('text', {
+        x: node.x + 22, y: node.y + 14,
+        'text-anchor': 'middle',
+        fill: '#64748b',
+        'font-family': 'Manrope, sans-serif',
+        'font-size': '8'
+    });
+    goLabel.textContent = 'GO';
 
-    async function render(userId) {
-        const root = await fetchTree(userId);
+    const goVal = svgEl('text', {
+        x: node.x + 22, y: node.y + 25,
+        'text-anchor': 'middle',
+        fill: '#a78bfa',
+        'font-family': 'JetBrains Mono, monospace',
+        'font-size': '10',
+        'font-weight': '700'
+    });
+    goVal.textContent = st.go ?? '—';
 
-        const leaves = countLeaves(root);
-        const depth = maxDepth(root);
+    g.append(rect, accent, idText, qualText, loLabel, loVal, div, goLabel, goVal);
 
-        const width = Math.max(1200, leaves * 140);
-        const height = Math.max(600, (depth + 1) * 120);
+    // Hover tooltip
+    g.addEventListener('mouseenter', (e) => showTooltip(e, node, st));
+    g.addEventListener('mousemove', (e) => moveTooltip(e));
+    g.addEventListener('mouseleave', () => hideTooltip());
 
-        const svg = document.getElementById("tree");
-        svg.innerHTML = "";
-        svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
-        svg.setAttribute("preserveAspectRatio", "xMidYMin meet");
+    svg.appendChild(g);
 
-        const state = {
-            x: 0,
-            gapX: width / (leaves + 1),
-            gapY: 120
-        };
+    (node.team || []).forEach(c => drawNodes(c, svg, statusMap));
+}
 
-        layout(root, 60, state);
+/* ===================== TOOLTIP ===================== */
+const tooltip = document.getElementById('tooltip');
 
-        drawLinks(root, svg);
-        drawNodes(root, svg);
-    }
+function showTooltip(e, node, st) {
+    const fmt = v => (v === undefined || v === null || v === '') ? '—' : v;
+    const money = v => (v == null ? '—' : Number(v).toLocaleString('ru'));
 
-    /* ===================== START ===================== */
+    tooltip.innerHTML = `
+        <div class="tt-title">Пользователь #${node.user_id}</div>
+        <div class="tt-row"><span class="tt-label">LO (личный объём)</span><span class="tt-val">${fmt(node.lo)}</span></div>
+        <div class="tt-row"><span class="tt-label">GO (групповой объём)</span><span class="tt-val">${fmt(st.go)}</span></div>
+        <div class="tt-row"><span class="tt-label">Side Volume</span><span class="tt-val">${fmt(st.side_volume)}</span></div>
+        <div class="tt-row"><span class="tt-label">Баллы (points)</span><span class="tt-val">${fmt(st.points)}</span></div>
+        <div class="tt-row"><span class="tt-label">Личный бонус</span><span class="tt-val">${fmt(st.personal_bonus)}</span></div>
+        <div class="tt-row"><span class="tt-label">Структурный бонус</span><span class="tt-val">${fmt(st.structure_bonus)}</span></div>
+        <div class="tt-row"><span class="tt-label">Ментор бонус</span><span class="tt-val">${fmt(st.mentor_bonus)}</span></div>
+        <div class="tt-row"><span class="tt-label">Экстра бонус</span><span class="tt-val">${fmt(st.extra_bonus)}</span></div>
+        <div class="tt-row"><span class="tt-label">Личные деньги</span><span class="tt-val">${money(st.personal_money)}</span></div>
+        <div class="tt-row"><span class="tt-label">Группа деньги</span><span class="tt-val">${money(st.group_money)}</span></div>
+        <div class="tt-row"><span class="tt-label">Лидер деньги</span><span class="tt-val">${money(st.leader_money)}</span></div>
+        <div class="tt-row"><span class="tt-label">Итого доход</span><span class="tt-val">${money(st.total_income)}</span></div>
+        ${st.qualification ? `<div class="tt-qual">${st.qualification}</div>` : ''}
+    `;
+    tooltip.style.display = 'block';
+    moveTooltip(e);
+}
 
-    render(2);
+function moveTooltip(e) {
+    const pad = 14;
+    let x = e.clientX + pad;
+    let y = e.clientY + pad;
+    const tw = tooltip.offsetWidth, th = tooltip.offsetHeight;
+    if (x + tw > window.innerWidth - 8) x = e.clientX - tw - pad;
+    if (y + th > window.innerHeight - 8) y = e.clientY - th - pad;
+    tooltip.style.left = x + 'px';
+    tooltip.style.top = y + 'px';
+}
+
+function hideTooltip() {
+    tooltip.style.display = 'none';
+}
+
+/* ===================== RENDER ===================== */
+async function render(userId) {
+    const loader = document.getElementById('loader');
+    const loaderText = loader.querySelector('.loader-text');
+
+    loaderText.textContent = 'Загрузка структуры...';
+
+    const root = await fetchTree(userId);
+    const allNodes = collectNodes(root);
+
+    loaderText.textContent = `Загрузка статусов (${allNodes.length} узлов)...`;
+
+    // Parallel fetch all statuses
+    const statusEntries = await Promise.all(
+        allNodes.map(async n => [n.user_id, await fetchStatus(n.user_id)])
+    );
+    const statusMap = Object.fromEntries(statusEntries);
+
+    const leaves = countLeaves(root);
+    const depth = maxDepth(root);
+
+    const gapX = Math.max(140, 140);
+    const gapY = 110;
+    const width = Math.max(1200, (leaves + 1) * gapX);
+    const height = Math.max(600, (depth + 2) * gapY);
+
+    const svg = document.getElementById('tree');
+    svg.innerHTML = '';
+    svg.style.width = width + 'px';
+    svg.style.height = height + 'px';
+    svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+
+    const state = { x: 0, gapX: width / (leaves + 1), gapY };
+    layout(root, 60, state);
+
+    // Draw links layer first
+    const linksG = svgEl('g', { id: 'links' });
+    drawLinks(root, linksG);
+    svg.appendChild(linksG);
+
+    // Draw nodes layer on top
+    const nodesG = svgEl('g', { id: 'nodes' });
+    drawNodes(root, nodesG, statusMap);
+    svg.appendChild(nodesG);
+
+    loader.style.display = 'none';
+}
+
+render(2);
 </script>
-
 </body>
 </html>
