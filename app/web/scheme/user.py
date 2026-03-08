@@ -24,6 +24,8 @@ class SubLOResponse(BaseModel):
     user_id: int
     lo_subtracted: float
 
+class ResetLOResponse(BaseModel):
+    user_id: int
 
 class MemberTreeResponse(BaseModel):
     user_id: int = Field(..., description="ID участника")

@@ -107,5 +107,4 @@ class MemberStatus(BaseModel):
     )
 
 
-
 MemberStatus.model_rebuild()

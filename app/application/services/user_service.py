@@ -67,3 +67,11 @@ class UserService:
     async def get_structure(self, user_id: int) -> dict:
         root_member = await self.repo.build_member_tree(user_id)
         return member_to_tree_response(root_member).dict()
+
+    async def reset_lo(self, user_id: int):
+        member = await self.repo.get_by_user_id(user_id)
+        if not member or not member.stats:
+            raise DomainError("User not found")
+
+        member.stats.lo = max(0, member.stats.lo - member.stats.lo)
+        await self.repo.save(member)

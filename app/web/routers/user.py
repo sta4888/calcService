@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends
 from application.services.user_service import UserService
 from domain.repositories.member_repository import MemberRepository
 from web.scheme.schemas import ApiResponse, AddLORequest, MemberStatus, IncomeResponse
-from web.scheme.user import NewUserRequest, CreateUserResponse, AddLOResponse, SubLOResponse, MemberTreeResponse
+from web.scheme.user import NewUserRequest, CreateUserResponse, AddLOResponse, SubLOResponse, MemberTreeResponse, \
+    ResetLOResponse
 
 user = APIRouter(
     prefix="/users",
@@ -53,6 +54,24 @@ async def add_lo(
     return ApiResponse(
         error=False,
         data={"user_id": user_id, "lo_added": payload.lo},
+    )
+
+
+@user.post(
+    " /{user_id}/reset",
+    summary="Сброс личный оборот (LO)",
+    description="Сбрасывает личный оборот пользователя",
+    response_model=ApiResponse[ResetLOResponse],
+)
+async def reset_lo(
+        user_id: int,
+        service: UserService = Depends(get_user_service),
+
+):
+    await service.reset_lo(user_id)
+    return ApiResponse(
+        error=False,
+        data={"user_id": user_id},
     )
 
 
