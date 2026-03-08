@@ -58,7 +58,7 @@ async def add_lo(
 
 
 @user.post(
-    " /{user_id}/reset",
+    "/{user_id}/reset",
     summary="Сброс личный оборот (LO)",
     description="Сбрасывает личный оборот пользователя",
     response_model=ApiResponse[ResetLOResponse],
