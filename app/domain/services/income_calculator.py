@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 from typing import List, Optional, Set
-from member import SIDE_VOLUME_THRESHOLD, Member
-from BreakdownItem import BreakdownItem, IncomeBreakdown
-from qualification import Qualification
-from qualifications import qualification_by_points, QUALIFICATIONS
-from schemas import IncomeResponse, BranchInfo
+from domain.models.member import SIDE_VOLUME_THRESHOLD, Member
+from domain.value_objects.BreakdownItem import BreakdownItem, IncomeBreakdown
+from domain.value_objects.qualification import Qualification
+from domain.value_objects.qualifications import qualification_by_points, QUALIFICATIONS
+from web.scheme.schemas import IncomeResponse, BranchInfo
 
 VERON_PRICE = 7000
 HAMKOR_POINTS = QUALIFICATIONS[0].min_points
