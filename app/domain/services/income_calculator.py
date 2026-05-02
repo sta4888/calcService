@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-
 from typing import Dict, List, Tuple
 
 from domain.models.member import Member
@@ -9,11 +8,9 @@ from domain.value_objects.qualifications import QUALIFICATIONS
 from web.scheme.schemas import IncomeResponse
 
 
-# ============== КОНСТАНТЫ ==============
-
-VERON_PRICE = 7000           # 1 Veron = 7000 сум
-ACTIVITY_THRESHOLD = 50      # минимум LO для активности
-SIDE_VOLUME_THRESHOLD = 500  # минимум yonbosh (Shart 1B)
+VERON_PRICE = 7000
+ACTIVITY_THRESHOLD = 50
+SIDE_VOLUME_THRESHOLD = 500
 
 HAMKOR = QUALIFICATIONS[0]
 MENTOR = QUALIFICATIONS[1]
@@ -21,8 +18,7 @@ MENTOR = QUALIFICATIONS[1]
 
 class IncomeCalculator:
     def __init__(self):
-        # Кэш квалификаций по всему дереву: {user_id: Qualification}
-        # Заполняется лениво при обходе снизу вверх
+        # Кэш итоговых квалификаций: {user_id: Qualification}
         self._q_cache: Dict[int, Qualification] = {}
 
     # ===================================================================
@@ -30,19 +26,18 @@ class IncomeCalculator:
     # ===================================================================
 
     def _is_active(self, member: Member) -> bool:
-        """Hamkor активен если за месяц набрал >= 50 LO."""
         return member.lo >= ACTIVITY_THRESHOLD
 
     # ===================================================================
-    # КВАЛИФИКАЦИЯ (рекурсивно снизу вверх с кэшем)
+    # КВАЛИФИКАЦИЯ
     # ===================================================================
 
     def _qualification_of(self, member: Member) -> Qualification:
-        """Возвращает финальную квалификацию участника. Кэширует результат."""
+        """Возвращает итоговую квалификацию участника. Кэширует."""
         if member.user_id in self._q_cache:
             return self._q_cache[member.user_id]
 
-        # Сначала считаем для всех детей (post-order DFS)
+        # Сначала рекурсивно для детей (post-order)
         for child in member.team:
             self._qualification_of(child)
 
@@ -50,42 +45,73 @@ class IncomeCalculator:
         self._q_cache[member.user_id] = q
         return q
 
+    def _potential_qualification(self, group_volume: float) -> Qualification:
+        """По полному GO — самая высокая квалификация, под которую он попадает."""
+        for q in reversed(QUALIFICATIONS):
+            if group_volume >= q.min_points:
+                return q
+        return HAMKOR
+
     def _compute_qualification(self, member: Member) -> Qualification:
-        """Применяет два условия из PDF и возвращает максимальную подходящую Q."""
         # Неактивный → Hamkor
         if not self._is_active(member):
             return HAMKOR
 
-        group_volume = member.group_volume()
+        total_go = member.group_volume()
+        q_pot = self._potential_qualification(total_go)
 
-        # Перебор статусов сверху вниз (от Olmos к Mentor)
+        if q_pot is HAMKOR:
+            return HAMKOR
+
+        # Сильные ветки — прямые дети с квалификацией >= q_pot
+        strong_branches_go = 0.0
+        clean_yonbosh = member.lo
+        for child in member.team:
+            child_q = self._q_cache[child.user_id]
+            if child_q.min_points >= q_pot.min_points:
+                # сильная — выбрасываем из всего
+                strong_branches_go += child.group_volume()
+            else:
+                # обычная — добавляется в yonbosh
+                clean_yonbosh += child.group_volume()
+
+        clean_go = total_go - strong_branches_go
+
+        # Может ли родитель сам закрыть q_pot?
+        if clean_go >= q_pot.min_points and clean_yonbosh >= SIDE_VOLUME_THRESHOLD:
+            return q_pot
+
+        # Не может — ищем максимальную Q по clean_go и clean_yonbosh
         for q in reversed(QUALIFICATIONS):
             if q is HAMKOR:
-                continue  # Hamkor — это дефолт без условий
-
-            # Shart 1A: GO >= Q.min_points
-            if group_volume < q.min_points:
                 continue
-
-            # Shart 1B: yonbosh(Q) >= 500
-            if self._yonbosh(member, q) < SIDE_VOLUME_THRESHOLD:
-                continue
-
-            # Оба условия выполнены — это наш статус
-            return q
+            if clean_go >= q.min_points and clean_yonbosh >= SIDE_VOLUME_THRESHOLD:
+                return q
 
         return HAMKOR
 
-    def _yonbosh(self, member: Member, q: Qualification) -> float:
-        """
-        Yonbosh ball относительно квалификации Q.
-        = LO + сумма GO детей, чей подтверждённый статус строго ниже Q.
-        Дети, "закрывшие Q" (их статус >= Q), исключаются — они "ушли".
-        """
+    # ===================================================================
+    # СЛУЖЕБНОЕ — для отчёта/ответа
+    # ===================================================================
+
+    def _strong_branches(
+            self, member: Member, q_pot: Qualification
+    ) -> List[Member]:
+        """Список сильных прямых веток относительно q_pot."""
+        strong = []
+        for child in member.team:
+            child_q = self._q_cache[child.user_id]
+            if child_q.min_points >= q_pot.min_points:
+                strong.append(child)
+        return strong
+
+    def _yonbosh_for_response(self, member: Member) -> float:
+        """yonbosh для отображения — LO + GO детей, не закрывших итоговую квалификацию."""
+        member_q = self._q_cache[member.user_id]
         total = member.lo
         for child in member.team:
-            child_q = self._q_cache[child.user_id]  # уже посчитан выше
-            if child_q.min_points < q.min_points:
+            child_q = self._q_cache[child.user_id]
+            if child_q.min_points < member_q.min_points:
                 total += child.group_volume()
         return total
 
@@ -112,29 +138,15 @@ class IncomeCalculator:
     def _team(
             self, member: Member, member_q: Qualification
     ) -> Tuple[float, List[BreakdownItem]]:
-        """
-        Каждый потомок c вносит вклад в командный бонус member'а:
-            (member_q.team_percent - taken_in_chain) × c.LO × VERON_PRICE
-        где taken_in_chain — максимальный team_percent среди c и всех
-        предков c между c и member (исключая member). Если значение
-        отрицательное — вклад нулевой.
-        """
         total = 0.0
         items: List[BreakdownItem] = []
 
         def walk(node: Member, taken: float):
-            """
-            taken — макс. team_percent уже "съеденный" в цепочке
-            от node вверх до member (не включая member).
-            """
             nonlocal total
-
             for child in node.team:
                 child_q = self._qualification_of(child)
-                # Сам child тоже "съедает" свой процент
                 child_taken = max(taken, child_q.team_percent)
 
-                # Сколько member может забрать с LO этого ребёнка?
                 if member_q.team_percent > child_taken and child.lo > 0:
                     diff = member_q.team_percent - child_taken
                     money = child.lo * diff * VERON_PRICE
@@ -149,7 +161,6 @@ class IncomeCalculator:
                         money=money,
                     ))
 
-                # Рекурсивно глубже с обновлённым потолком
                 walk(child, child_taken)
 
         walk(member, taken=0.0)
@@ -162,10 +173,7 @@ class IncomeCalculator:
     def _leader(
             self, member: Member, member_q: Qualification
     ) -> Tuple[float, List[BreakdownItem]]:
-        """
-        Лидерский бонус идёт с GO веток, чей подтверждённый статус >= нашего.
-        Условие: сам как минимум Mentor.
-        """
+        # Только если сам Mentor или выше
         if member_q.min_points < MENTOR.min_points:
             return 0.0, []
 
@@ -192,21 +200,15 @@ class IncomeCalculator:
     # ===================================================================
 
     def calculate(self, member: Member) -> IncomeResponse:
-        # Сбрасываем кэш на каждом новом дереве, чтобы не мешало
         self._q_cache.clear()
-
-        # Прогреваем кэш — посчитаем квалификации всех потомков
         member_q = self._qualification_of(member)
 
         group_volume = member.group_volume()
-        yonbosh = self._yonbosh(member, member_q) if member_q is not HAMKOR \
-            else self._yonbosh_for_display(member)
+        yonbosh = self._yonbosh_for_response(member)
 
-        # Если неактивен — все нули
         if not self._is_active(member):
             return self._zero_response(member, group_volume, yonbosh)
 
-        # Считаем все три типа дохода
         personal_money, personal_item = self._personal(member, member_q)
         team_money, team_items = self._team(member, member_q)
         leader_money, leader_items = self._leader(member, member_q)
@@ -241,19 +243,6 @@ class IncomeCalculator:
             total_income=float(round(total)),
             branches_info=[],
         )
-
-    # ===================================================================
-    # ВСПОМОГАТЕЛЬНЫЕ
-    # ===================================================================
-
-    def _yonbosh_for_display(self, member: Member) -> float:
-        """yonbosh для неактивного / Hamkor — просто LO + GO всех детей < Mentor."""
-        total = member.lo
-        for child in member.team:
-            child_q = self._q_cache.get(child.user_id, HAMKOR)
-            if child_q.min_points < MENTOR.min_points:
-                total += child.group_volume()
-        return total
 
     def _zero_response(
             self, member: Member, group_volume: float, yonbosh: float
