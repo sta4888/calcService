@@ -59,12 +59,14 @@ class IncomeCalculator:
     def team(
             self, member: Member, member_q: Qualification
     ) -> Tuple[float, List[BreakdownItem]]:
+        print(f"\n=== TEAM для id={member.user_id} q={member_q.name} t%={member_q.team_percent} ===")
         total = 0.0
         items: List[BreakdownItem] = []
 
         # 1) Свой LO × свой team_percent (LO принадлежит самому родителю)
         if member.lo > 0 and member_q.team_percent > 0:
             own_money = member.lo * member_q.team_percent * VERON_PRICE
+            print(f"  свой LO: {member.lo} × {member_q.team_percent} × 7000 = {own_money}")
             total += own_money
             items.append(BreakdownItem(
                 description=(
@@ -78,20 +80,16 @@ class IncomeCalculator:
         # 2) С каждой обычной ветки — разница процентов × GO ветки
         for child in member.team:
             child_q = self._resolver.qualify(child)
-
-            # Сильные пропускаем — они в лидерский
-            if child_q.min_points >= member_q.min_points:
-                continue
-
+            is_strong = child_q.min_points >= member_q.min_points
             diff = member_q.team_percent - child_q.team_percent
-            if diff <= 0:
-                continue
-
             child_go = child.group_volume()
-            if child_go == 0:
-                continue
-
+            print(f"  ребёнок id={child.user_id} q={child_q.name} GO={child_go} "
+                  f"{'СИЛЬНАЯ' if is_strong else f'обычная diff={diff}'}")
+            if is_strong: continue
+            if diff <= 0: continue
+            if child_go == 0: continue
             money = child_go * diff * VERON_PRICE
+            print(f"     → {child_go} × {diff} × 7000 = {money}")
             total += money
             items.append(BreakdownItem(
                 description=(
@@ -113,19 +111,21 @@ class IncomeCalculator:
             self, member: Member, member_q: Qualification
     ) -> Tuple[float, List[BreakdownItem]]:
         # Только если сам Mentor или выше
+        print(f"\n=== LEADER для id={member.user_id} q={member_q.name} m%={member_q.mentor_percent} ===")
         if member_q.min_points < MENTOR.min_points:
+            print(f"  q < Mentor → 0")
             return 0.0, []
 
         strong_go = 0.0
         for child in member.team:
             child_q = self._resolver.qualify(child)
             if child_q.min_points >= member_q.min_points:
+                print(f"  сильный ребёнок id={child.user_id} q={child_q.name} GO={child.group_volume()}")
                 strong_go += child.group_volume()
 
-        if strong_go == 0:
-            return 0.0, []
-
+        print(f"  strong_go = {strong_go}")
         money = strong_go * member_q.mentor_percent * VERON_PRICE
+        print(f"  leader = {strong_go} × {member_q.mentor_percent} × 7000 = {money}")
         item = BreakdownItem(
             description=(
                 f"С сильных веток – {member_q.mentor_percent * 100:.0f}%"
