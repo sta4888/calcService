@@ -132,38 +132,46 @@ class IncomeCalculator:
         return money, item
 
     # ===================================================================
-    # КОМАНДНЫЙ БОНУС (farq foizi с компрессией)
+    # КОМАНДНЫЙ БОНУС (farq foizi с прямых детей по их GO)
     # ===================================================================
 
     def _team(
             self, member: Member, member_q: Qualification
     ) -> Tuple[float, List[BreakdownItem]]:
+        """
+        Командный бонус: разница процентов с каждого прямого ребёнка,
+        умноженная на GO этого ребёнка.
+
+        Для каждого прямого ребёнка c:
+            diff = member_q.team_percent - c_q.team_percent
+            если diff > 0: money += c.GO × diff × VERON_PRICE
+        Дальше вглубь не идём — это задача расчёта для самого c.
+        """
         total = 0.0
         items: List[BreakdownItem] = []
 
-        def walk(node: Member, taken: float):
-            nonlocal total
-            for child in node.team:
-                child_q = self._qualification_of(child)
-                child_taken = max(taken, child_q.team_percent)
+        for child in member.team:
+            child_q = self._qualification_of(child)
+            diff = member_q.team_percent - child_q.team_percent
 
-                if member_q.team_percent > child_taken and child.lo > 0:
-                    diff = member_q.team_percent - child_taken
-                    money = child.lo * diff * VERON_PRICE
-                    total += money
-                    items.append(BreakdownItem(
-                        description=(
-                            f"С {child_q.name} (ID:{child.user_id}) – "
-                            f"{diff * 100:.1f}%"
-                        ),
-                        volume=child.lo,
-                        percent=diff,
-                        money=money,
-                    ))
+            if diff <= 0:
+                continue
 
-                walk(child, child_taken)
+            child_go = child.group_volume()
+            if child_go == 0:
+                continue
 
-        walk(member, taken=0.0)
+            money = child_go * diff * VERON_PRICE
+            total += money
+            items.append(BreakdownItem(
+                description=(
+                    f"С {child_q.name} (ID:{child.user_id}) – {diff * 100:.1f}%"
+                ),
+                volume=child_go,
+                percent=diff,
+                money=money,
+            ))
+
         return total, items
 
     # ===================================================================
