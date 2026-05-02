@@ -1,14 +1,14 @@
 from application.mappers.member_mapper import member_to_tree_response
 from domain.repositories.member_repository import MemberRepository
 from domain.exceptions import DomainError
-from domain.services.income_calculator import IncomeCalculator
+from domain.services.everon_calculator import EveronCalculator
 from infrastructure.db.models import MemberDB, MemberStatsDB
 
 
 class UserService:
     def __init__(self, repo: MemberRepository):
         self.repo = repo
-        self.calculator = IncomeCalculator()
+        self.calculator = EveronCalculator()
 
     async def create(self, user_id: int, referrer_user_id: int | None = None) -> MemberDB:
         existing = await self.repo.get_by_user_id(user_id)

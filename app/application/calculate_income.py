@@ -1,10 +1,10 @@
 from domain.models.member import Member
-from domain.services.income_calculator import IncomeCalculator
+from domain.services.everon_calculator import EveronCalculator
 
 
 class IncomeCalculatorUseCase:
     def __init__(self):
-        self.calculator = IncomeCalculator()
+        self.calculator = EveronCalculator()
 
     def execute(self, data: dict):
         root = self._build_member(data)
