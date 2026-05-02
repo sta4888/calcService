@@ -8,6 +8,7 @@ from domain.value_objects.qualifications import QUALIFICATIONS
 
 from domain.services.qualification_resolver import QualificationResolver
 
+
 VERON_PRICE = 7000
 MENTOR = QUALIFICATIONS[1]
 
@@ -15,13 +16,25 @@ MENTOR = QUALIFICATIONS[1]
 class IncomeCalculator:
     """
     Считает три типа дохода: личный, командный, лидерский.
-    Нужна QualificationResolver, чтобы получать квалификации детей.
+
+    Правила:
+    1. Личный: LO × q.personal_percent × VERON_PRICE.
+    2. Прямые дети делятся на две группы:
+       - Сильные (квалификация >= итоговой родителя)  → идут в лидерский
+       - Обычные (квалификация <  итоговой родителя)  → идут в командный
+    3. Командный: для каждой обычной ветки c
+           diff = q.team_percent - c_q.team_percent
+           если diff > 0: money += c.GO × diff × VERON_PRICE
+    4. Лидерский: только если q >= Mentor
+           money = sum(GO сильных веток) × q.mentor_percent × VERON_PRICE
     """
 
     def __init__(self, resolver: QualificationResolver):
         self._resolver = resolver
 
-    # --- личный ---
+    # =================================================================
+    # ЛИЧНЫЙ
+    # =================================================================
 
     def personal(
             self, member: Member, q: Qualification
@@ -35,23 +48,24 @@ class IncomeCalculator:
         )
         return money, item
 
-    # --- командный (с прямых детей × GO) ---
+    # =================================================================
+    # КОМАНДНЫЙ (только с обычных веток)
+    # =================================================================
 
     def team(
             self, member: Member, member_q: Qualification
     ) -> Tuple[float, List[BreakdownItem]]:
-        """
-        Для каждого прямого ребёнка c:
-            diff = member_q.team_percent - c_q.team_percent
-            если diff > 0: money += c.GO × diff × VERON_PRICE
-        """
         total = 0.0
         items: List[BreakdownItem] = []
 
         for child in member.team:
             child_q = self._resolver.qualify(child)
-            diff = member_q.team_percent - child_q.team_percent
 
+            # Сильные ветки в командный не попадают — они для лидерского
+            if child_q.min_points >= member_q.min_points:
+                continue
+
+            diff = member_q.team_percent - child_q.team_percent
             if diff <= 0:
                 continue
 
@@ -73,15 +87,24 @@ class IncomeCalculator:
 
         return total, items
 
-    # --- лидерский (с сильных веток) ---
+    # =================================================================
+    # ЛИДЕРСКИЙ (с сильных веток)
+    # =================================================================
 
     def leader(
             self, member: Member, member_q: Qualification
     ) -> Tuple[float, List[BreakdownItem]]:
+        # Условие: сам как минимум Mentor
         if member_q.min_points < MENTOR.min_points:
             return 0.0, []
 
-        strong_go = self._resolver.volume.strong_branches_go(member, member_q)
+        # Сумма GO сильных веток (квалификация >= итоговой родителя)
+        strong_go = 0.0
+        for child in member.team:
+            child_q = self._resolver.qualify(child)
+            if child_q.min_points >= member_q.min_points:
+                strong_go += child.group_volume()
+
         if strong_go == 0:
             return 0.0, []
 

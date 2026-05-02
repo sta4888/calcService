@@ -10,16 +10,13 @@ if TYPE_CHECKING:
 class VolumeCalculator:
     """
     Считает объёмы по дереву участников.
-
-    Сильная ветка — прямой ребёнок, чья квалификация >= q_pot.
-    Чтобы определить квалификацию ребёнка, обращается к QualificationResolver.
+    Использует QualificationResolver для квалификаций детей.
     """
 
     def __init__(self, resolver: "QualificationResolver"):
         self._resolver = resolver
 
     def group_volume(self, member: Member) -> float:
-        """Полный GO: LO + сумма GO всех детей."""
         return member.group_volume()
 
     def clean_go(self, member: Member, q_pot: Qualification) -> float:
@@ -41,7 +38,7 @@ class VolumeCalculator:
         return total
 
     def strong_branches_go(self, member: Member, q: Qualification) -> float:
-        """Сумма GO веток с квалификацией >= q. Используется для лидерского."""
+        """Сумма GO веток с квалификацией >= q."""
         total = 0.0
         for child in member.team:
             child_q = self._resolver.qualify(child)
