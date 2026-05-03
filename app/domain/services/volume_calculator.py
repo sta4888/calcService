@@ -24,13 +24,26 @@ class VolumeCalculator:
         return member.group_volume()
 
     def yonbosh(self, member: Member) -> float:
-        """LO + GO детей-Hamkor (квалификация < Mentor)."""
+        """LO + рекурсивная сумма contribution от детей."""
         total = member.lo
         for child in member.team:
-            child_q = self._resolver.qualify(child)
-            if child_q.min_points < MENTOR.min_points:
-                total += child.group_volume()
+            total += self._contribution(child)
         return total
+
+    def _contribution(self, branch: Member) -> float:
+        """
+        Что ветка вносит в yonbosh родителя:
+        - 0, если закрыла Mentor
+        - иначе её LO + рекурсивно contribution её детей
+        """
+        branch_q = self._resolver.qualify(branch)
+        if branch_q.min_points >= MENTOR.min_points:
+            return 0.0
+
+        own = branch.lo
+        for child in branch.team:
+            own += self._contribution(child)
+        return own
 
     def clean_go(self, member: Member, q_pot: Qualification) -> float:
         """GO без сильных веток (детей с квалификацией >= q_pot)."""
