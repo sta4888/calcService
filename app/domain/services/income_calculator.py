@@ -16,21 +16,16 @@ class IncomeCalculator:
     """
     Считает три типа дохода: личный, командный, лидерский.
 
-    Принцип:
-    - Прямые дети делятся на сильные и обычные:
-        сильная: c.q >= итоговая родителя → идёт в лидерский
-        обычная: c.q <  итоговая родителя → идёт в командный
-    - Каждый рубль платится один раз (farq foizi).
+    Правило командного — "представители подветки":
+      Для каждого прямого ребёнка root_child:
+        - если root_child сильная (q >= итог родителя) → в лидерский
+        - иначе спускаемся и собираем "представителей":
+          представитель = узел, под которым нет никого сильнее его
+          (сравнение по team_percent).
+          С каждого представителя берём GO × (parent% − rep%) × 7000.
 
-    Формулы:
-        personal = LO × q.personal_percent × VERON_PRICE
-
-        team =   LO × q.team_percent × VERON_PRICE                # за свой LO
-               + sum(c.GO × (q.team_percent − c.q.team_percent)   # за обычных
-                     × VERON_PRICE) для обычных детей с diff > 0
-
-        leader = sum(GO сильных детей) × q.mentor_percent × VERON_PRICE
-                 (только если q >= Mentor)
+    Hamkor-листья: сейчас включаются как представители (с полным diff).
+    Если нужно их пропускать — раскомментировать фильтр в _collect_reps.
     """
 
     def __init__(self, resolver: QualificationResolver):
@@ -53,79 +48,122 @@ class IncomeCalculator:
         return money, item
 
     # =================================================================
-    # КОМАНДНЫЙ — LO родителя × свой % + diff с обычных детей
+    # КОМАНДНЫЙ
     # =================================================================
 
     def team(
             self, member: Member, member_q: Qualification
     ) -> Tuple[float, List[BreakdownItem]]:
-        print(f"\n=== TEAM для id={member.user_id} q={member_q.name} t%={member_q.team_percent} ===")
         total = 0.0
         items: List[BreakdownItem] = []
 
-        # 1) Свой LO × свой team_percent (LO принадлежит самому родителю)
+        # 1) Свой LO × свой team_percent
         if member.lo > 0 and member_q.team_percent > 0:
             own_money = member.lo * member_q.team_percent * VERON_PRICE
-            print(f"  свой LO: {member.lo} × {member_q.team_percent} × 7000 = {own_money}")
             total += own_money
             items.append(BreakdownItem(
-                description=(
-                    f"Свой LO × {member_q.team_percent * 100:.0f}%"
-                ),
+                description=f"Свой LO × {member_q.team_percent * 100:.0f}%",
                 volume=member.lo,
                 percent=member_q.team_percent,
                 money=own_money,
             ))
 
-        # 2) С каждой обычной ветки — разница процентов × GO ветки
+        # 2) По каждой прямой ветке — собираем представителей и
+        #    с каждого берём GO × diff
         for child in member.team:
             child_q = self._resolver.qualify(child)
-            is_strong = child_q.min_points >= member_q.min_points
-            diff = member_q.team_percent - child_q.team_percent
-            child_go = child.group_volume()
-            print(f"  ребёнок id={child.user_id} q={child_q.name} GO={child_go} "
-                  f"{'СИЛЬНАЯ' if is_strong else f'обычная diff={diff}'}")
-            if is_strong: continue
-            if diff <= 0: continue
-            if child_go == 0: continue
-            money = child_go * diff * VERON_PRICE
-            print(f"     → {child_go} × {diff} × 7000 = {money}")
-            total += money
-            items.append(BreakdownItem(
-                description=(
-                    f"С {child_q.name} (ID:{child.user_id}) – "
-                    f"{diff * 100:.1f}%"
-                ),
-                volume=child_go,
-                percent=diff,
-                money=money,
-            ))
+
+            # Сильные ветки → в лидерский, не сюда
+            if child_q.min_points >= member_q.min_points:
+                continue
+
+            # Собираем представителей из этой подветки
+            representatives = self._collect_reps(child)
+
+            for rep in representatives:
+                rep_q = self._resolver.qualify(rep)
+                diff = member_q.team_percent - rep_q.team_percent
+                if diff <= 0:
+                    continue
+
+                rep_go = rep.group_volume()
+                if rep_go == 0:
+                    continue
+
+                money = rep_go * diff * VERON_PRICE
+                total += money
+                items.append(BreakdownItem(
+                    description=(
+                        f"С {rep_q.name} (ID:{rep.user_id}) – "
+                        f"{diff * 100:.1f}%"
+                    ),
+                    volume=rep_go,
+                    percent=diff,
+                    money=money,
+                ))
 
         return total, items
 
+    def _collect_reps(self, node: Member) -> List[Member]:
+        """
+        Собирает "представителей" подветки.
+        Представитель = узел, под которым НЕТ никого сильнее его самого.
+        Если под node есть кто-то сильнее — node "не лидер",
+        собираем представителей с его детей.
+
+        ЗАМЕТКА: чтобы пропускать Hamkor-узлы (включать только
+        тех, кто закрыл хотя бы Mentor) — раскомментировать
+        фильтр ниже.
+        """
+        node_q = self._resolver.qualify(node)
+
+        if self._has_stronger_descendant(node, node_q.team_percent):
+            # node не лидер своей подветки — спускаемся к детям
+            result: List[Member] = []
+            for child in node.team:
+                result.extend(self._collect_reps(child))
+            return result
+
+        # node — лидер своей подветки
+        # # Если нужно пропускать Hamkor (только закрывшие Mentor+):
+        # if node_q.min_points < MENTOR.min_points:
+        #     return []
+        return [node]
+
+    def _has_stronger_descendant(
+            self, node: Member, threshold_percent: float
+    ) -> bool:
+        """Есть ли в поддереве node (исключая сам node) узел
+        с team_percent > threshold?"""
+        for child in node.team:
+            child_q = self._resolver.qualify(child)
+            if child_q.team_percent > threshold_percent:
+                return True
+            if self._has_stronger_descendant(child, threshold_percent):
+                return True
+        return False
+
     # =================================================================
-    # ЛИДЕРСКИЙ — с сильных веток
+    # ЛИДЕРСКИЙ
     # =================================================================
 
     def leader(
             self, member: Member, member_q: Qualification
     ) -> Tuple[float, List[BreakdownItem]]:
         # Только если сам Mentor или выше
-        print(f"\n=== LEADER для id={member.user_id} q={member_q.name} m%={member_q.mentor_percent} ===")
         if member_q.min_points < MENTOR.min_points:
-            print(f"  q < Mentor → 0")
             return 0.0, []
 
         strong_go = 0.0
         for child in member.team:
             child_q = self._resolver.qualify(child)
             if child_q.min_points >= member_q.min_points:
-                print(f"  сильный ребёнок id={child.user_id} q={child_q.name} GO={child.group_volume()}")
                 strong_go += child.group_volume()
 
-        print(f"  strong_go = {strong_go}")
+        if strong_go == 0:
+            return 0.0, []
+
         money = strong_go * member_q.mentor_percent * VERON_PRICE
-        print(f"  leader = {strong_go} × {member_q.mentor_percent} × 7000 = {money}")
         item = BreakdownItem(
             description=(
                 f"С сильных веток – {member_q.mentor_percent * 100:.0f}%"
