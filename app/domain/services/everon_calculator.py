@@ -28,9 +28,8 @@ class EveronCalculator:
     def calculate(self, member: Member) -> IncomeResponse:
         member_q = self._resolver.qualify(member)
         group_volume = self.volume.group_volume(member)
-        yonbosh = self._yonbosh_for_response(member, member_q)
+        yonbosh = self.volume.yonbosh(member)  # ← теперь один метод
 
-        # Неактивный — все нули
         if member_q is HAMKOR and member.lo < 50:
             return self._zero_response(member, group_volume, yonbosh)
 

@@ -15,26 +15,21 @@ class QualificationResolver:
     Определяет финальную квалификацию участника.
 
     Алгоритм:
-    1. LO < 50 → Hamkor (неактивен).
+    1. LO < 50 → Hamkor.
     2. По полному GO определяем потенциальную q_pot.
-    3. Считаем clean_go и clean_yonbosh (без сильных веток).
-    4. Если родитель сам закрывает q_pot (clean_go и clean_yonbosh
-       проходят пороги) → q_pot. Иначе ищем максимальный Q,
-       подходящий по clean_go и clean_yonbosh.
+    3. Считаем clean_go (без сильных веток) и yonbosh (LO + Hamkor-ветки).
+    4. Если родитель сам закрывает q_pot (clean_go >= q_pot.min_points
+       и yonbosh >= 500) → q_pot. Иначе ищем максимальную Q.
     """
 
     def __init__(self):
-        # VolumeCalculator зависит от resolver, поэтому создаём его здесь
-        # с обратной ссылкой
         self._volume = VolumeCalculator(self)
 
     @property
     def volume(self) -> VolumeCalculator:
-        """Доступ к VolumeCalculator снаружи (для IncomeCalculator)."""
         return self._volume
 
     def qualify(self, member: Member) -> Qualification:
-        """Считает финальную квалификацию (без кэша — каждый раз заново)."""
         if not self._is_active(member):
             return HAMKOR
 
@@ -45,19 +40,21 @@ class QualificationResolver:
             return HAMKOR
 
         clean_go = self._volume.clean_go(member, q_pot)
-        clean_yonbosh = self._volume.clean_yonbosh(member, q_pot)
+        yonbosh = self._volume.yonbosh(member)
 
-        # Может ли родитель сам закрыть q_pot без сильных веток?
-        if (clean_go >= q_pot.min_points
-                and clean_yonbosh >= SIDE_VOLUME_THRESHOLD):
+        # Условие B одно — yonbosh >= 500
+        if yonbosh < SIDE_VOLUME_THRESHOLD:
+            return HAMKOR
+
+        # Может ли родитель сам закрыть q_pot?
+        if clean_go >= q_pot.min_points:
             return q_pot
 
         # Не может — ищем максимальный Q под clean_go
         for q in reversed(QUALIFICATIONS):
             if q is HAMKOR:
                 continue
-            if (clean_go >= q.min_points
-                    and clean_yonbosh >= SIDE_VOLUME_THRESHOLD):
+            if clean_go >= q.min_points:
                 return q
 
         return HAMKOR
