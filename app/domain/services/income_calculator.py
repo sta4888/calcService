@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from typing import List, Tuple
+from typing import List, Tuple, Iterable
 
 from domain.models.member import Member
 from domain.value_objects.BreakdownItem import BreakdownItem
@@ -16,16 +16,24 @@ class IncomeCalculator:
     """
     Считает три типа дохода: личный, командный, лидерский.
 
-    Правило командного — "представители подветки":
+    Командный — правило "вкладов в подветке":
       Для каждого прямого ребёнка root_child:
-        - если root_child сильная (q >= итог родителя) → в лидерский
-        - иначе спускаемся и собираем "представителей":
-          представитель = узел, под которым нет никого сильнее его
-          (сравнение по team_percent).
-          С каждого представителя берём GO × (parent% − rep%) × 7000.
+        - сильная (q >= итог родителя) → в лидерский, не сюда
+        - иначе спускаемся и собираем вклады по правилу:
 
-    Hamkor-листья: сейчас включаются как представители (с полным diff).
-    Если нужно их пропускать — раскомментировать фильтр в _collect_reps.
+          Для каждого узла node в подветке:
+            * если node Hamkor → не вносит вклад, но идём в его детей
+            * если node закрыл Mentor+:
+                - если под node есть кто-то СИЛЬНЕЕ (по team_percent):
+                    node "не лидер" → вносит вклад через свой LO
+                    + идём в его детей искать дальше
+                - если под node никого сильнее:
+                    node "лидер" своей подветки → вносит вклад через свой GO
+                    + НЕ идём в его детей (всё внутри уже учтено в GO)
+
+      С каждого вклада: объём × (parent_team_percent − node_team_percent) × VERON_PRICE.
+
+      Плюс свой LO родителя × parent_team_percent × VERON_PRICE.
     """
 
     def __init__(self, resolver: QualificationResolver):
@@ -57,7 +65,7 @@ class IncomeCalculator:
         total = 0.0
         items: List[BreakdownItem] = []
 
-        # 1) Свой LO × свой team_percent
+        # 1) Свой LO родителя × свой team_percent
         if member.lo > 0 and member_q.team_percent > 0:
             own_money = member.lo * member_q.team_percent * VERON_PRICE
             total += own_money
@@ -68,8 +76,7 @@ class IncomeCalculator:
                 money=own_money,
             ))
 
-        # 2) По каждой прямой ветке — собираем представителей и
-        #    с каждого берём GO × diff
+        # 2) По каждой прямой ветке — собираем вклады
         for child in member.team:
             child_q = self._resolver.qualify(child)
 
@@ -77,58 +84,55 @@ class IncomeCalculator:
             if child_q.min_points >= member_q.min_points:
                 continue
 
-            # Собираем представителей из этой подветки
-            representatives = self._collect_reps(child)
-
-            for rep in representatives:
-                rep_q = self._resolver.qualify(rep)
-                diff = member_q.team_percent - rep_q.team_percent
+            for contributor, volume, contributor_q in self._collect_contributions(child):
+                diff = member_q.team_percent - contributor_q.team_percent
                 if diff <= 0:
                     continue
-
-                rep_go = rep.group_volume()
-                if rep_go == 0:
+                if volume == 0:
                     continue
 
-                money = rep_go * diff * VERON_PRICE
+                money = volume * diff * VERON_PRICE
                 total += money
                 items.append(BreakdownItem(
                     description=(
-                        f"С {rep_q.name} (ID:{rep.user_id}) – "
+                        f"С {contributor_q.name} (ID:{contributor.user_id}) – "
                         f"{diff * 100:.1f}%"
                     ),
-                    volume=rep_go,
+                    volume=volume,
                     percent=diff,
                     money=money,
                 ))
 
         return total, items
 
-    def _collect_reps(self, node: Member) -> List[Member]:
+    def _collect_contributions(
+            self, node: Member
+    ) -> Iterable[Tuple[Member, float, Qualification]]:
         """
-        Собирает "представителей" подветки.
-        Представитель = узел, под которым НЕТ никого сильнее его самого.
-        Если под node есть кто-то сильнее — node "не лидер",
-        собираем представителей с его детей.
+        Возвращает список (узел, объём, его_квалификация) для всех вкладчиков
+        в подветке node.
 
-        ЗАМЕТКА: чтобы пропускать Hamkor-узлы (включать только
-        тех, кто закрыл хотя бы Mentor) — раскомментировать
-        фильтр ниже.
+        Hamkor: пропускается (не вносит вклада), но рекурсивно идём в его детей.
+        Mentor+ "лидер" (под ним нет сильнее): вносит GO, дальше не идём.
+        Mentor+ "не лидер" (под ним есть сильнее): вносит LO, идём дальше.
         """
         node_q = self._resolver.qualify(node)
 
-        if self._has_stronger_descendant(node, node_q.team_percent):
-            # node не лидер своей подветки — спускаемся к детям
-            result: List[Member] = []
+        # Hamkor — без вклада, но идём в детей
+        if node_q.min_points < MENTOR.min_points:
             for child in node.team:
-                result.extend(self._collect_reps(child))
-            return result
+                yield from self._collect_contributions(child)
+            return
 
-        # node — лидер своей подветки
-        # # Если нужно пропускать Hamkor (только закрывшие Mentor+):
-        # if node_q.min_points < MENTOR.min_points:
-        #     return []
-        return [node]
+        # node закрыл Mentor+
+        if self._has_stronger_descendant(node, node_q.team_percent):
+            # Не лидер — вносит свой LO, продолжаем спуск
+            yield (node, float(node.lo), node_q)
+            for child in node.team:
+                yield from self._collect_contributions(child)
+        else:
+            # Лидер своей подветки — вносит свой GO, спуск прерываем
+            yield (node, node.group_volume(), node_q)
 
     def _has_stronger_descendant(
             self, node: Member, threshold_percent: float
