@@ -10,6 +10,11 @@ from domain.services.volume_calculator import VolumeCalculator
 
 HAMKOR = QUALIFICATIONS[0]
 
+def _print_tree(m: Member, indent: int = 0) -> None:
+    """Диагностическая печать дерева: id, LO, GO для каждого узла."""
+    print("  " * indent + f"id={m.user_id} lo={m.lo} go={m.group_volume()}")
+    for c in m.team:
+        _print_tree(c, indent + 1)
 
 class EveronCalculator:
     """
@@ -26,6 +31,9 @@ class EveronCalculator:
         return self._resolver.volume
 
     def calculate(self, member: Member) -> IncomeResponse:
+        print(f"\n========= calculate({member.user_id}) =========")
+        _print_tree(member)
+        print("=" * 50)
         member_q = self._resolver.qualify(member)
         group_volume = self.volume.group_volume(member)
         yonbosh = self.volume.yonbosh(member)  # ← теперь один метод
