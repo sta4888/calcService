@@ -31,9 +31,9 @@ class EveronCalculator:
         return self._resolver.volume
 
     def calculate(self, member: Member) -> IncomeResponse:
-        print(f"\n========= calculate({member.user_id}) =========")
-        _print_tree(member)
-        print("=" * 50)
+        # print(f"\n========= calculate({member.user_id}) =========")
+        # _print_tree(member)
+        # print("=" * 50)
         member_q = self._resolver.qualify(member)
         group_volume = self.volume.group_volume(member)
         yonbosh = self.volume.yonbosh(member)  # ← теперь один метод
