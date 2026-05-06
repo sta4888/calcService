@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from typing import List, Tuple, Iterable
+from typing import List, Tuple
 
 from domain.models.member import Member
 from domain.value_objects.BreakdownItem import BreakdownItem
@@ -7,6 +7,7 @@ from domain.value_objects.qualification import Qualification
 from domain.value_objects.qualifications import QUALIFICATIONS
 
 from domain.services.qualification_resolver import QualificationResolver
+
 
 VERON_PRICE = 7000
 MENTOR = QUALIFICATIONS[1]
@@ -16,24 +17,14 @@ class IncomeCalculator:
     """
     Считает три типа дохода: личный, командный, лидерский.
 
-    Командный — правило "вкладов в подветке":
-      Для каждого прямого ребёнка root_child:
-        - сильная (q >= итог родителя) → в лидерский, не сюда
-        - иначе спускаемся и собираем вклады по правилу:
-
-          Для каждого узла node в подветке:
-            * если node Hamkor → не вносит вклад, но идём в его детей
-            * если node закрыл Mentor+:
-                - если под node есть кто-то СИЛЬНЕЕ (по team_percent):
-                    node "не лидер" → вносит вклад через свой LO
-                    + идём в его детей искать дальше
-                - если под node никого сильнее:
-                    node "лидер" своей подветки → вносит вклад через свой GO
-                    + НЕ идём в его детей (всё внутри уже учтено в GO)
-
-      С каждого вклада: объём × (parent_team_percent − node_team_percent) × VERON_PRICE.
-
-      Плюс свой LO родителя × parent_team_percent × VERON_PRICE.
+    Командный = три части:
+      1) yonbosh самого участника × parent.team_percent × VERON_PRICE
+         где yonbosh = LO + рекурсивная сумма contribution(Hamkor-веток)
+      2) С каждой Hamkor-подветки (прямой ребёнок-Hamkor):
+         (GO − contribution_yonbosh) × (parent% − max_team_in_subtree) × VERON_PRICE
+      3) С каждой не-Hamkor обычной ветки (квалификация ≥ Mentor, но < parent):
+         GO × (parent% − child%) × VERON_PRICE
+      Сильные ветки (≥ parent) → не в командный, в лидерский.
     """
 
     def __init__(self, resolver: QualificationResolver):
@@ -65,87 +56,109 @@ class IncomeCalculator:
         total = 0.0
         items: List[BreakdownItem] = []
 
-        # 1) Свой LO родителя × свой team_percent
-        if member.lo > 0 and member_q.team_percent > 0:
-            own_money = member.lo * member_q.team_percent * VERON_PRICE
-            total += own_money
+        # --- 1) yonbosh × parent.team_percent ---
+        yonbosh = self._yonbosh_value(member)
+        if yonbosh > 0 and member_q.team_percent > 0:
+            yb_money = yonbosh * member_q.team_percent * VERON_PRICE
+            total += yb_money
             items.append(BreakdownItem(
-                description=f"Свой LO × {member_q.team_percent * 100:.0f}%",
-                volume=member.lo,
+                description=f"Yonbosh × {member_q.team_percent * 100:.0f}%",
+                volume=yonbosh,
                 percent=member_q.team_percent,
-                money=own_money,
+                money=yb_money,
             ))
 
-        # 2) По каждой прямой ветке — собираем вклады
+        # --- 2 & 3) Прямые дети ---
         for child in member.team:
             child_q = self._resolver.qualify(child)
 
-            # Сильные ветки → в лидерский, не сюда
+            # Сильные → в лидерский
             if child_q.min_points >= member_q.min_points:
                 continue
 
-            for contributor, volume, contributor_q in self._collect_contributions(child):
-                diff = member_q.team_percent - contributor_q.team_percent
-                if diff <= 0:
-                    continue
-                if volume == 0:
+            child_go = child.group_volume()
+
+            if child_q.min_points < MENTOR.min_points:
+                # === Hamkor-ветка: (GO − contribution) × (parent% − max%) ===
+                contribution = self._contribution(child)
+                remainder = child_go - contribution
+                if remainder <= 0:
                     continue
 
-                money = volume * diff * VERON_PRICE
+                max_pct = self._max_team_percent_in_subtree(child)
+                diff = member_q.team_percent - max_pct
+                if diff <= 0:
+                    continue
+
+                money = remainder * diff * VERON_PRICE
                 total += money
                 items.append(BreakdownItem(
                     description=(
-                        f"С {contributor_q.name} (ID:{contributor.user_id}) – "
+                        f"Остаток Hamkor-ветки {child.user_id} "
+                        f"(GO−yonbosh) × {diff * 100:.1f}%"
+                    ),
+                    volume=remainder,
+                    percent=diff,
+                    money=money,
+                ))
+            else:
+                # === Обычная не-Hamkor ветка: GO × (parent% − child%) ===
+                diff = member_q.team_percent - child_q.team_percent
+                if diff <= 0 or child_go == 0:
+                    continue
+
+                money = child_go * diff * VERON_PRICE
+                total += money
+                items.append(BreakdownItem(
+                    description=(
+                        f"С {child_q.name} (ID:{child.user_id}) – "
                         f"{diff * 100:.1f}%"
                     ),
-                    volume=volume,
+                    volume=child_go,
                     percent=diff,
                     money=money,
                 ))
 
         return total, items
 
-    def _collect_contributions(
-            self, node: Member
-    ) -> Iterable[Tuple[Member, float, Qualification]]:
-        """
-        Возвращает список (узел, объём, его_квалификация) для всех вкладчиков
-        в подветке node.
+    # =================================================================
+    # ВСПОМОГАТЕЛЬНЫЕ ДЛЯ КОМАНДНОГО
+    # =================================================================
 
-        Hamkor: пропускается (не вносит вклада), но рекурсивно идём в его детей.
-        Mentor+ "лидер" (под ним нет сильнее): вносит GO, дальше не идём.
-        Mentor+ "не лидер" (под ним есть сильнее): вносит LO, идём дальше.
+    def _yonbosh_value(self, member: Member) -> float:
+        """LO + рекурсивная сумма contribution(прямых детей)."""
+        total = float(member.lo)
+        for child in member.team:
+            total += self._contribution(child)
+        return total
+
+    def _contribution(self, node: Member) -> float:
+        """
+        Рекурсивная contribution в yonbosh:
+        - если node закрыл Mentor+ → 0 (граница)
+        - иначе → LO + сумма contribution детей
         """
         node_q = self._resolver.qualify(node)
+        if node_q.min_points >= MENTOR.min_points:
+            return 0.0
 
-        # Hamkor — без вклада, но идём в детей
-        if node_q.min_points < MENTOR.min_points:
-            for child in node.team:
-                yield from self._collect_contributions(child)
-            return
-
-        # node закрыл Mentor+
-        if self._has_stronger_descendant(node, node_q.team_percent):
-            # Не лидер — вносит свой LO, продолжаем спуск
-            yield (node, float(node.lo), node_q)
-            for child in node.team:
-                yield from self._collect_contributions(child)
-        else:
-            # Лидер своей подветки — вносит свой GO, спуск прерываем
-            yield (node, node.group_volume(), node_q)
-
-    def _has_stronger_descendant(
-            self, node: Member, threshold_percent: float
-    ) -> bool:
-        """Есть ли в поддереве node (исключая сам node) узел
-        с team_percent > threshold?"""
+        total = float(node.lo)
         for child in node.team:
-            child_q = self._resolver.qualify(child)
-            if child_q.team_percent > threshold_percent:
-                return True
-            if self._has_stronger_descendant(child, threshold_percent):
-                return True
-        return False
+            total += self._contribution(child)
+        return total
+
+    def _max_team_percent_in_subtree(self, node: Member) -> float:
+        """
+        Максимальный team_percent среди всех узлов в подветке node
+        (включая саму node).
+        """
+        node_q = self._resolver.qualify(node)
+        max_pct = node_q.team_percent
+        for child in node.team:
+            child_max = self._max_team_percent_in_subtree(child)
+            if child_max > max_pct:
+                max_pct = child_max
+        return max_pct
 
     # =================================================================
     # ЛИДЕРСКИЙ
@@ -154,7 +167,6 @@ class IncomeCalculator:
     def leader(
             self, member: Member, member_q: Qualification
     ) -> Tuple[float, List[BreakdownItem]]:
-        # Только если сам Mentor или выше
         if member_q.min_points < MENTOR.min_points:
             return 0.0, []
 
