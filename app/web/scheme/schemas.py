@@ -60,6 +60,7 @@ class IncomeResponse(BaseModel):
     qualification: str = Field(..., description="Текущая квалификация")
     lo: float = Field(..., description="Личный оборот (LO)")
     go: float = Field(..., description="Групповой оборот (GO)")
+    group_side_volume: float = 0.0
     side_volume: float = Field(..., description="Side volume")
     points: float = Field(..., description="Квалификационные баллы")
 

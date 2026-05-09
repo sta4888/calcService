@@ -2,21 +2,17 @@
 from typing import TYPE_CHECKING
 from domain.models.member import Member
 from domain.value_objects.qualification import Qualification
-from domain.value_objects.qualifications import QUALIFICATIONS
+from domain.value_objects.qualifications import QUALIFICATIONS  # ← убедись что есть
 
 if TYPE_CHECKING:
     from domain.services.qualification_resolver import QualificationResolver
 
+
+HAMKOR = QUALIFICATIONS[0]
 MENTOR = QUALIFICATIONS[1]
 
 
 class VolumeCalculator:
-    """
-    Считает объёмы по дереву.
-
-    yonbosh = LO + сумма GO детей-Hamkor (тех, кто НЕ закрыл Mentor).
-    """
-
     def __init__(self, resolver: "QualificationResolver"):
         self._resolver = resolver
 
@@ -24,29 +20,42 @@ class VolumeCalculator:
         return member.group_volume()
 
     def yonbosh(self, member: Member) -> float:
-        """LO + рекурсивная сумма contribution от детей."""
+        """LO + GO детей-Hamkor (квалификация < Mentor)."""
         total = member.lo
         for child in member.team:
-            total += self._contribution(child)
+            child_q = self._resolver.qualify(child)
+            if child_q.min_points < MENTOR.min_points:
+                total += child.group_volume()
         return total
 
-    def _contribution(self, branch: Member) -> float:
+    def gsv(self, member: Member) -> float:
         """
-        Что ветка вносит в yonbosh родителя:
-        - 0, если закрыла Mentor
-        - иначе её LO + рекурсивно contribution её детей
+        Group Side Volume = полный GO − GO прямых сильных детей.
+        "Сильный" = квалификация >= потенциальной квалификации родителя
+        (по полному GO).
         """
-        branch_q = self._resolver.qualify(branch)
-        if branch_q.min_points >= MENTOR.min_points:
-            return 0.0
+        total_go = self.group_volume(member)
+        q_pot = self._potential(total_go)
 
-        own = branch.lo
-        for child in branch.team:
-            own += self._contribution(child)
-        return own
+        if q_pot is HAMKOR:
+            return total_go
+
+        for child in member.team:
+            child_q = self._resolver.qualify(child)
+            if child_q.min_points >= q_pot.min_points:
+                total_go -= child.group_volume()
+
+        return total_go
+
+    def _potential(self, group_volume: float) -> Qualification:
+        """Самая высокая квалификация под полный GO."""
+        for q in reversed(QUALIFICATIONS):
+            if group_volume >= q.min_points:
+                return q
+        return HAMKOR
 
     def clean_go(self, member: Member, q_pot: Qualification) -> float:
-        """GO без сильных веток (детей с квалификацией >= q_pot)."""
+        """GO без сильных веток (для использования в QualificationResolver)."""
         total = self.group_volume(member)
         for child in member.team:
             child_q = self._resolver.qualify(child)
