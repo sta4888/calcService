@@ -13,14 +13,6 @@
             --accent2: #a78bfa;
             --text: #e2e8f0;
             --muted: #64748b;
-            --low: #1e2433;
-            --low-border: #3a4060;
-            --mid: #132033;
-            --mid-border: #2563eb;
-            --good: #0f2318;
-            --good-border: #16a34a;
-            --top: #221a07;
-            --top-border: #d97706;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -59,6 +51,7 @@
             gap: 14px;
             margin-left: auto;
             align-items: center;
+            flex-wrap: wrap;
         }
 
         .legend-item {
@@ -76,10 +69,16 @@
             border-radius: 2px;
         }
 
-        .legend-dot.low  { background: #3a4060; }
-        .legend-dot.mid  { background: #2563eb; }
-        .legend-dot.good { background: #16a34a; }
-        .legend-dot.top  { background: #d97706; }
+        .legend-dot.hamkor    { background: #3a4060; }
+        .legend-dot.mentor    { background: #2563eb; }
+        .legend-dot.menejer   { background: #4f9cf9; }
+        .legend-dot.direktor  { background: #a78bfa; }
+        .legend-dot.bronza    { background: #16a34a; }
+        .legend-dot.kumush    { background: #22d3ee; }
+        .legend-dot.oltin     { background: #d97706; }
+        .legend-dot.zumrad    { background: #f59e0b; }
+        .legend-dot.brilliant { background: #fbbf24; }
+        .legend-dot.olmos     { background: #fde047; }
 
         #viewport {
             flex: 1;
@@ -118,20 +117,10 @@
 
         svg { display: block; }
 
-        /* Node cards */
-        .node-card {
-            cursor: default;
-        }
+        .node-card { cursor: default; }
+        .node-card:hover .card-body { filter: brightness(1.15); }
+        .card-body { transition: filter 0.15s; }
 
-        .node-card:hover .card-body {
-            filter: brightness(1.15);
-        }
-
-        .card-body {
-            transition: filter 0.15s;
-        }
-
-        /* Tooltip */
         #tooltip {
             position: fixed;
             background: #1e2433;
@@ -142,7 +131,7 @@
             pointer-events: none;
             z-index: 100;
             display: none;
-            min-width: 200px;
+            min-width: 220px;
             box-shadow: 0 8px 32px rgba(0,0,0,0.5);
         }
 
@@ -194,10 +183,16 @@
 <header>
     <h1>⬡ MLM Structure</h1>
     <div class="legend">
-        <div class="legend-item"><div class="legend-dot low"></div> LO &lt; 100</div>
-        <div class="legend-item"><div class="legend-dot mid"></div> LO 100–499</div>
-        <div class="legend-item"><div class="legend-dot good"></div> LO 500–999</div>
-        <div class="legend-item"><div class="legend-dot top"></div> LO 1000+</div>
+        <div class="legend-item"><div class="legend-dot hamkor"></div> Hamkor</div>
+        <div class="legend-item"><div class="legend-dot mentor"></div> Mentor</div>
+        <div class="legend-item"><div class="legend-dot menejer"></div> Menejer</div>
+        <div class="legend-item"><div class="legend-dot direktor"></div> Direktor</div>
+        <div class="legend-item"><div class="legend-dot bronza"></div> Bronza</div>
+        <div class="legend-item"><div class="legend-dot kumush"></div> Kumush</div>
+        <div class="legend-item"><div class="legend-dot oltin"></div> Oltin</div>
+        <div class="legend-item"><div class="legend-dot zumrad"></div> Zumrad</div>
+        <div class="legend-item"><div class="legend-dot brilliant"></div> Brilliant</div>
+        <div class="legend-item"><div class="legend-dot olmos"></div> Olmos</div>
     </div>
 </header>
 
@@ -259,19 +254,22 @@ function layout(node, levelY, state) {
     node.x = (node.team[0].x + node.team[node.team.length - 1].x) / 2;
 }
 
-/* ===================== COLOR ===================== */
-function loStyle(lo) {
-    if (lo >= 1000) return { fill: '#2a1e06', stroke: '#d97706' };
-    if (lo >= 500)  return { fill: '#0b1f12', stroke: '#16a34a' };
-    if (lo >= 100)  return { fill: '#0c1829', stroke: '#2563eb' };
-    return              { fill: '#14182a', stroke: '#3a4060' };
-}
+/* ===================== COLOR BY QUALIFICATION ===================== */
+const QUAL_STYLES = {
+    Hamkor:    { fill: '#14182a', stroke: '#3a4060', text: '#94a3b8' },
+    Mentor:    { fill: '#0c1829', stroke: '#2563eb', text: '#60a5fa' },
+    Menejer:   { fill: '#0a1a2e', stroke: '#4f9cf9', text: '#7cb6ff' },
+    Direktor:  { fill: '#1a1330', stroke: '#a78bfa', text: '#c4b5fd' },
+    Bronza:    { fill: '#0b1f12', stroke: '#16a34a', text: '#4ade80' },
+    Kumush:    { fill: '#062a30', stroke: '#22d3ee', text: '#67e8f9' },
+    Oltin:     { fill: '#2a1e06', stroke: '#d97706', text: '#fbbf24' },
+    Zumrad:    { fill: '#2e2206', stroke: '#f59e0b', text: '#fcd34d' },
+    Brilliant: { fill: '#332710', stroke: '#fbbf24', text: '#fde68a' },
+    Olmos:     { fill: '#3a2f12', stroke: '#fde047', text: '#fef08a' },
+};
 
-function loTextColor(lo) {
-    if (lo >= 1000) return '#fbbf24';
-    if (lo >= 500)  return '#4ade80';
-    if (lo >= 100)  return '#60a5fa';
-    return '#94a3b8';
+function qualStyle(q) {
+    return QUAL_STYLES[q] || QUAL_STYLES.Hamkor;
 }
 
 /* ===================== SVG HELPERS ===================== */
@@ -279,12 +277,6 @@ function svgEl(tag, attrs) {
     const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
     Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, v));
     return el;
-}
-
-function svgText(x, y, cls, content, extra = {}) {
-    const t = svgEl('text', { x, y, class: cls, ...extra });
-    t.textContent = content;
-    return t;
 }
 
 /* ===================== DRAW ===================== */
@@ -305,12 +297,11 @@ const W = 110, H = 68;
 
 function drawNodes(node, svg, statusMap) {
     const st = statusMap[node.user_id] || {};
-    const style = loStyle(node.lo);
-    const textColor = loTextColor(node.lo);
+    const qual = st.qualification || 'Hamkor';
+    const style = qualStyle(qual);
 
     const g = svgEl('g', { class: 'node-card', 'data-id': node.user_id });
 
-    // Card background
     const rect = svgEl('rect', {
         x: node.x - W/2, y: node.y - H/2,
         width: W, height: H,
@@ -321,7 +312,6 @@ function drawNodes(node, svg, statusMap) {
         class: 'card-body'
     });
 
-    // Top accent line
     const accent = svgEl('rect', {
         x: node.x - W/2 + 1, y: node.y - H/2 + 1,
         width: W - 2, height: 3,
@@ -330,7 +320,6 @@ function drawNodes(node, svg, statusMap) {
         class: 'card-body'
     });
 
-    // ID
     const idText = svgEl('text', {
         x: node.x, y: node.y - 20,
         'text-anchor': 'middle',
@@ -341,20 +330,17 @@ function drawNodes(node, svg, statusMap) {
     });
     idText.textContent = `#${node.user_id}`;
 
-    // Qualification badge
-    const qual = st.qualification || '—';
     const qualText = svgEl('text', {
         x: node.x, y: node.y - 5,
         'text-anchor': 'middle',
-        fill: '#94a3b8',
+        fill: style.text,
         'font-family': 'Manrope, sans-serif',
         'font-size': '9',
-        'font-weight': '600',
+        'font-weight': '700',
         'letter-spacing': '0.04em'
     });
     qualText.textContent = qual.toUpperCase();
 
-    // LO
     const loLabel = svgEl('text', {
         x: node.x - 22, y: node.y + 14,
         'text-anchor': 'middle',
@@ -367,14 +353,13 @@ function drawNodes(node, svg, statusMap) {
     const loVal = svgEl('text', {
         x: node.x - 22, y: node.y + 25,
         'text-anchor': 'middle',
-        fill: textColor,
+        fill: style.text,
         'font-family': 'JetBrains Mono, monospace',
         'font-size': '10',
         'font-weight': '700'
     });
     loVal.textContent = node.lo;
 
-    // Divider
     const div = svgEl('line', {
         x1: node.x, y1: node.y + 8,
         x2: node.x, y2: node.y + 28,
@@ -382,7 +367,6 @@ function drawNodes(node, svg, statusMap) {
         'stroke-width': '1'
     });
 
-    // GO
     const goLabel = svgEl('text', {
         x: node.x + 22, y: node.y + 14,
         'text-anchor': 'middle',
@@ -404,7 +388,6 @@ function drawNodes(node, svg, statusMap) {
 
     g.append(rect, accent, idText, qualText, loLabel, loVal, div, goLabel, goVal);
 
-    // Hover tooltip
     g.addEventListener('mouseenter', (e) => showTooltip(e, node, st));
     g.addEventListener('mousemove', (e) => moveTooltip(e));
     g.addEventListener('mouseleave', () => hideTooltip());
@@ -426,6 +409,7 @@ function showTooltip(e, node, st) {
         <div class="tt-row"><span class="tt-label">LO (личный объём)</span><span class="tt-val">${fmt(node.lo)}</span></div>
         <div class="tt-row"><span class="tt-label">GO (групповой объём)</span><span class="tt-val">${fmt(st.go)}</span></div>
         <div class="tt-row"><span class="tt-label">Side Volume</span><span class="tt-val">${fmt(st.side_volume)}</span></div>
+        <div class="tt-row"><span class="tt-label">Group Side Volume</span><span class="tt-val">${fmt(st.group_side_volume)}</span></div>
         <div class="tt-row"><span class="tt-label">Баллы (points)</span><span class="tt-val">${fmt(st.points)}</span></div>
         <div class="tt-row"><span class="tt-label">Личный бонус</span><span class="tt-val">${fmt(st.personal_bonus)}</span></div>
         <div class="tt-row"><span class="tt-label">Структурный бонус</span><span class="tt-val">${fmt(st.structure_bonus)}</span></div>
@@ -468,7 +452,6 @@ async function render(userId) {
 
     loaderText.textContent = `Загрузка статусов (${allNodes.length} узлов)...`;
 
-    // Parallel fetch all statuses
     const statusEntries = await Promise.all(
         allNodes.map(async n => [n.user_id, await fetchStatus(n.user_id)])
     );
@@ -491,12 +474,10 @@ async function render(userId) {
     const state = { x: 0, gapX: width / (leaves + 1), gapY };
     layout(root, 60, state);
 
-    // Draw links layer first
     const linksG = svgEl('g', { id: 'links' });
     drawLinks(root, linksG);
     svg.appendChild(linksG);
 
-    // Draw nodes layer on top
     const nodesG = svgEl('g', { id: 'nodes' });
     drawNodes(root, nodesG, statusMap);
     svg.appendChild(nodesG);
