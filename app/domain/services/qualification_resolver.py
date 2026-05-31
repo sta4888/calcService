@@ -33,28 +33,13 @@ class QualificationResolver:
         if not self._is_active(member):
             return HAMKOR
 
-        total_go = self._volume.group_volume(member)
-        q_pot = self._potential(total_go)
-
-        if q_pot is HAMKOR:
+        if self._volume.yonbosh(member) < SIDE_VOLUME_THRESHOLD:
             return HAMKOR
 
-        clean_go = self._volume.clean_go(member, q_pot)
-        yonbosh = self._volume.yonbosh(member)
-
-        # Условие B одно — yonbosh >= 500
-        if yonbosh < SIDE_VOLUME_THRESHOLD:
-            return HAMKOR
-
-        # Может ли родитель сам закрыть q_pot?
-        if clean_go >= q_pot.min_points:
-            return q_pot
-
-        # Не может — ищем максимальный Q под clean_go
-        for q in reversed(QUALIFICATIONS):
+        for q in reversed(QUALIFICATIONS):  # от высшего к низшему
             if q is HAMKOR:
                 continue
-            if clean_go >= q.min_points:
+            if self._volume.clean_go(member, q) >= q.min_points:
                 return q
 
         return HAMKOR

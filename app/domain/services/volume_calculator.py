@@ -54,13 +54,25 @@ class VolumeCalculator:
                 return q
         return HAMKOR
 
-    def clean_go(self, member: Member, q_pot: Qualification) -> float:
-        """GO без сильных веток (для использования в QualificationResolver)."""
-        total = self.group_volume(member)
+    def clean_go(self, member: Member, q: Qualification) -> float:
+        """
+        GO без сильных веток, с обходом ДО КОНЦА дерева.
+        Узел с квалификацией >= q отсекаем целиком (он и его поддерево
+        в clean_go не попадают). Более слабый узел добавляет свой LO,
+        и мы идём в его детей.
+        """
+        total = float(member.lo)
         for child in member.team:
-            child_q = self._resolver.qualify(child)
-            if child_q.min_points >= q_pot.min_points:
-                total -= child.group_volume()
+            total += self._kept_below(child, q)
+        return total
+
+    def _kept_below(self, node: Member, q: Qualification) -> float:
+        node_q = self._resolver.qualify(node)
+        if node_q.min_points >= q.min_points:
+            return 0.0  # сильный — отсекаем всю ветку
+        total = float(node.lo)
+        for child in node.team:
+            total += self._kept_below(child, q)
         return total
 
     def strong_branches_go(self, member: Member, q: Qualification) -> float:
