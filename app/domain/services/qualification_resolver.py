@@ -33,7 +33,7 @@ class QualificationResolver:
         if not self._is_active(member):
             return HAMKOR
 
-        total_go = self._volume.raw_group_volume(member)
+        total_go = self._volume.group_volume(member)
         q_pot = self._potential(total_go)
 
         if q_pot is HAMKOR:

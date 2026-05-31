@@ -7,6 +7,7 @@ from domain.value_objects.qualifications import QUALIFICATIONS  # ← убеди
 if TYPE_CHECKING:
     from domain.services.qualification_resolver import QualificationResolver
 
+
 HAMKOR = QUALIFICATIONS[0]
 MENTOR = QUALIFICATIONS[1]
 
@@ -15,18 +16,8 @@ class VolumeCalculator:
     def __init__(self, resolver: "QualificationResolver"):
         self._resolver = resolver
 
-    # def group_volume(self, member: Member) -> float:
-    #     return member.group_volume()
-
     def group_volume(self, member: Member) -> float:
-        """GO с отсечением сильных веток."""
-        total = float(member.lo)
-        member_q = self._resolver.qualify(member)
-        for child in member.team:
-            child_q = self._resolver.qualify(child)
-            if child_q.min_points < member_q.min_points:
-                total += self.group_volume(child)
-        return total
+        return member.group_volume()
 
     def yonbosh(self, member: Member) -> float:
         """LO + GO детей-Hamkor (квалификация < Mentor)."""
@@ -79,11 +70,4 @@ class VolumeCalculator:
             child_q = self._resolver.qualify(child)
             if child_q.min_points >= q.min_points:
                 total += child.group_volume()
-        return total
-
-    def raw_group_volume(self, member: Member) -> float:
-        """Полный GO без учёта квалификации — только для qualify."""
-        total = float(member.lo)
-        for child in member.team:
-            total += self.raw_group_volume(child)
         return total
