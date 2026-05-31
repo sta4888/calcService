@@ -33,25 +33,24 @@ class QualificationResolver:
         if not self._is_active(member):
             return HAMKOR
 
-        # Сначала считаем yonbosh — это и есть база для квалификации
-        yonbosh = self._volume.yonbosh(member)
-
-        if yonbosh < SIDE_VOLUME_THRESHOLD:
-            return HAMKOR
-
-        # Потенциал определяем по боковому объёму, а не по полному GO
-        q_pot = self._potential(yonbosh)
+        total_go = self._volume.raw_group_volume(member)
+        q_pot = self._potential(total_go)
 
         if q_pot is HAMKOR:
             return HAMKOR
 
-        # clean_go — GO без веток, которые уже сами закрыли q_pot
         clean_go = self._volume.clean_go(member, q_pot)
+        yonbosh = self._volume.yonbosh(member)
 
+        # Условие B одно — yonbosh >= 500
+        if yonbosh < SIDE_VOLUME_THRESHOLD:
+            return HAMKOR
+
+        # Может ли родитель сам закрыть q_pot?
         if clean_go >= q_pot.min_points:
             return q_pot
 
-        # Иначе — максимальная Q под clean_go
+        # Не может — ищем максимальный Q под clean_go
         for q in reversed(QUALIFICATIONS):
             if q is HAMKOR:
                 continue
