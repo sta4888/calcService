@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+from typing import Dict
+
 from domain.models.member import Member
 from domain.value_objects.qualification import Qualification
 from domain.value_objects.qualifications import QUALIFICATIONS
@@ -6,49 +8,91 @@ from domain.value_objects.qualifications import QUALIFICATIONS
 from domain.services.volume_calculator import VolumeCalculator
 
 ACTIVITY_THRESHOLD = 50
-SIDE_VOLUME_THRESHOLD = 500
 HAMKOR = QUALIFICATIONS[0]
+MENTOR = QUALIFICATIONS[1]
 
 
 class QualificationResolver:
     """
-    Определяет финальную квалификацию участника.
+    Квалификация считается СНИЗУ ВВЕРХ по правилу строгого отсечения:
 
-    Алгоритм:
-    1. LO < 50 → Hamkor.
-    2. По полному GO определяем потенциальную q_pot.
-    3. Считаем clean_go (без сильных веток) и yonbosh (LO + Hamkor-ветки).
-    4. Если родитель сам закрывает q_pot (clean_go >= q_pot.min_points
-       и yonbosh >= 500) → q_pot. Иначе ищем максимальную Q.
+        ветка отваливается от родителя, ТОЛЬКО если её ранг СТРОГО выше
+        родителя. Равные ранги остаются и складываются.
+
+    Главный примитив — clean_go(member, rank):
+        LO члена + поднятый объём (up_value) всех детей, чей ранг НЕ выше rank.
+    Тот же clean_go служит и базой для денег за ГО.
+
+    Квалификация = самый высокий ранг q, при котором clean_go(member, q)
+    закрывает q.min_points. Так круговая зависимость («сильный = выше моего
+    ранга, а ранг зависит от того, кого отсекли») разрешается согласованно:
+    каждый ранг проверяется отсечением относительно него же.
+
+    qualify / up_value мемоизируются по user_id, иначе рекурсия
+    qualify → clean_go → up_value → qualify(child) уходит в переэкспоненту.
     """
 
     def __init__(self):
         self._volume = VolumeCalculator(self)
+        self._qual_cache: Dict[int, Qualification] = {}
+        self._up_cache: Dict[int, float] = {}
 
     @property
     def volume(self) -> VolumeCalculator:
         return self._volume
 
+    def clear(self) -> None:
+        """Сбросить кэши (вызывать перед расчётом нового дерева)."""
+        self._qual_cache.clear()
+        self._up_cache.clear()
+
+    # =================================================================
+    # КВАЛИФИКАЦИЯ
+    # =================================================================
+
     def qualify(self, member: Member) -> Qualification:
-        if not self._is_active(member):
-            return HAMKOR
+        cached = self._qual_cache.get(member.user_id)
+        if cached is not None:
+            return cached
+        result = self._resolve(member)
+        self._qual_cache[member.user_id] = result
+        return result
 
-        if self._volume.yonbosh(member) < SIDE_VOLUME_THRESHOLD:
+    def _resolve(self, member: Member) -> Qualification:
+        if member.lo < ACTIVITY_THRESHOLD:
             return HAMKOR
-
-        for q in reversed(QUALIFICATIONS):  # от высшего к низшему
+        # высший → низший: первый ранг, который закрывается чистым GO
+        for q in reversed(QUALIFICATIONS):
             if q is HAMKOR:
                 continue
-            if self._volume.clean_go(member, q) >= q.min_points:
-                return q
-
-        return HAMKOR
-
-    def _is_active(self, member: Member) -> bool:
-        return member.lo >= ACTIVITY_THRESHOLD
-
-    def _potential(self, group_volume: float) -> Qualification:
-        for q in reversed(QUALIFICATIONS):
-            if group_volume >= q.min_points:
+            if self.clean_go(member, q) >= q.min_points:
                 return q
         return HAMKOR
+
+    # =================================================================
+    # ЧИСТЫЙ GO / ПОДНЯТЫЙ ОБЪЁМ
+    # =================================================================
+
+    def clean_go(self, member: Member, rank: Qualification) -> float:
+        """
+        LO члена + up_value детей, чей ранг НЕ строго выше rank.
+        Ребёнок строго сильнее rank → его ветка отваливается (вклад 0).
+        Равный ранг → остаётся и складывается.
+        """
+        total = float(member.lo)
+        for child in member.team:
+            if self.qualify(child).min_points <= rank.min_points:
+                total += self.up_value(child)
+        return total
+
+    def up_value(self, member: Member) -> float:
+        """
+        Чистый GO, который узел поднимает родителю
+        = clean_go при СВОЁМ итоговом ранге.
+        """
+        cached = self._up_cache.get(member.user_id)
+        if cached is not None:
+            return cached
+        value = self.clean_go(member, self.qualify(member))
+        self._up_cache[member.user_id] = value
+        return value
