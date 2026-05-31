@@ -30,19 +30,29 @@ class QualificationResolver:
         return self._volume
 
     def qualify(self, member: Member) -> Qualification:
-        if not self._is_active(member):
+        if member.lo < ACTIVITY_THRESHOLD:
             return HAMKOR
-
-        if self._volume.yonbosh(member) < SIDE_VOLUME_THRESHOLD:
+        if self.yonbosh(member) < SIDE_VOLUME_THRESHOLD:
             return HAMKOR
-
-        for q in reversed(QUALIFICATIONS):  # от высшего к низшему
+        for q in reversed(QUALIFICATIONS):  # высший → низший
             if q is HAMKOR:
                 continue
-            if self._volume.clean_go(member, q) >= q.min_points:
+            if self.clean_go(member, q) >= q.min_points:
                 return q
-
         return HAMKOR
+
+    def clean_go(self, member: Member, rank: Qualification) -> float:
+        """LO + поднятый объём детей, чей ранг НЕ строго выше rank."""
+        total = float(member.lo)
+        for child in member.team:
+            if self.qualify(child).min_points <= rank.min_points:  # равный остаётся
+                total += self.up_value(child)
+            # иначе ребёнок строго сильнее → отваливается (вклад 0)
+        return total
+
+    def up_value(self, member: Member) -> float:
+        """Чистый GO, который узел поднимает родителю = clean_go при своём ранге."""
+        return self.clean_go(member, self.qualify(member))
 
     def _is_active(self, member: Member) -> bool:
         return member.lo >= ACTIVITY_THRESHOLD
