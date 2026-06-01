@@ -76,7 +76,7 @@ class QualificationResolver:
 
     def _rank_for(self, clean: float) -> Qualification:
         for q in reversed(QUALIFICATIONS):
-            if clean > q.min_points:
+            if clean >= q.min_points:
                 return q
         return HAMKOR
 
