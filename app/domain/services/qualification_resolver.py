@@ -75,21 +75,13 @@ class QualificationResolver:
 
     def clean_go(self, member: Member, rank: Qualification) -> float:
         """
-        LO члена + up_value детей, чьи ветки НЕ отвалились.
-
-        Ветка отваливается, если ребёнок — квалифицированный лидер (Mentor+)
-        с рангом >= проверяемого rank (равный ранг ТОЖЕ отваливается —
-        дифференциальная схема). HAMKOR-ветки не отваливаются никогда,
-        иначе боковые Hamkor перестали бы накапливаться у Hamkor-родителя.
+        LO члена + up_value детей, чей ранг НЕ строго выше rank.
+        Ребёнок строго сильнее rank → его ветка отваливается (вклад 0).
+        Равный ранг → остаётся и складывается.
         """
         total = float(member.lo)
         for child in member.team:
-            cq = self.qualify(child)
-            breaks_away = (
-                cq.min_points >= MENTOR.min_points
-                and cq.min_points >= rank.min_points
-            )
-            if not breaks_away:
+            if self.qualify(child).min_points <= rank.min_points:
                 total += self.up_value(child)
         return total
 

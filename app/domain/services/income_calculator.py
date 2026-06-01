@@ -88,13 +88,8 @@ class IncomeCalculator:
         money = 0.0
         for child in member.team:
             child_q = self._resolver.qualify(child)
-            # та же граница, что и в clean_go: Mentor+ с рангом >= нашего
-            # отвалился из чистого ГО → за него идёт лидерский овердайд
-            broke_away = (
-                child_q.min_points >= MENTOR.min_points
-                and child_q.min_points >= member_q.min_points
-            )
-            if broke_away:
+            # строго сильнее → ветка отвалилась из чистого ГО → овердайд
+            if child_q.min_points > member_q.min_points:
                 vol = self._resolver.up_value(child)
                 m = vol * member_q.mentor_percent * VERON_PRICE
                 money += m
