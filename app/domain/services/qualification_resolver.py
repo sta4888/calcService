@@ -24,10 +24,10 @@ class QualificationResolver:
         LO члена + поднятый объём (up_value) детей, чьи ветки НЕ отвалились.
     Тот же clean_go служит и базой для денег за ГО.
 
-    Квалификация = самый высокий ранг q, при котором clean_go(member, q)
-    закрывает q.min_points. Так круговая зависимость («сильный = >= моего
-    ранга, а ранг зависит от того, кого отсекли») разрешается согласованно:
-    каждый ранг проверяется отсечением относительно него же.
+    Квалификация = НАИМЕНЬШАЯ неподвижная точка (снизу вверх): ранг родителя
+    определяется его LO + поднятыми объёмами слабых веток; ветка, чей ранг
+    >= ранга родителя, отваливается и не помогает ему подняться. Родитель
+    должен «перебить» такую ветку своим объёмом, иначе она уходит в овердайд.
 
     qualify / up_value мемоизируются по user_id, иначе рекурсия
     qualify → clean_go → up_value → qualify(child) уходит в переэкспоненту.
@@ -62,11 +62,21 @@ class QualificationResolver:
     def _resolve(self, member: Member) -> Qualification:
         if member.lo < ACTIVITY_THRESHOLD:
             return HAMKOR
-        # высший → низший: первый ранг, который закрывается чистым GO
+        # НАИМЕНЬШАЯ неподвижная точка (снизу вверх):
+        # старт с HAMKOR, поднимаем ранг, пока он не стабилизируется.
+        # На каждом шаге отсекаем ветки >= текущей оценки ранга, поэтому
+        # равная/сильная ветка НЕ помогает родителю подняться — он должен
+        # перебить её своим LO + слабыми боковыми.
+        rank = HAMKOR
+        while True:
+            new_rank = self._rank_for(self.clean_go(member, rank))
+            if new_rank.min_points == rank.min_points:
+                return rank
+            rank = new_rank
+
+    def _rank_for(self, clean: float) -> Qualification:
         for q in reversed(QUALIFICATIONS):
-            if q is HAMKOR:
-                continue
-            if self.clean_go(member, q) >= q.min_points:
+            if clean >= q.min_points:
                 return q
         return HAMKOR
 
