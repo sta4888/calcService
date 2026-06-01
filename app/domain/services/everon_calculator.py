@@ -47,6 +47,7 @@ class EveronCalculator:
             qualification=member_q.name,
             lo=member.lo,
             go=group_volume,
+            group_side_volume=int(round(clean)),   # ГО без веток >= квалификации
             side_volume=clean,
             points=clean,
             personal_bonus=member_q.personal_percent,
@@ -69,6 +70,7 @@ class EveronCalculator:
             qualification=HAMKOR.name,
             lo=member.lo,
             go=group_volume,
+            group_side_volume=int(round(clean)),   # ГО без веток >= квалификации
             side_volume=clean,
             points=0,
             personal_bonus=0,
