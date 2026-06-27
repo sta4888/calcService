@@ -62,21 +62,32 @@ class QualificationResolver:
     def _resolve(self, member: Member) -> Qualification:
         if member.lo < ACTIVITY_THRESHOLD:
             return HAMKOR
-        # НАИМЕНЬШАЯ неподвижная точка (снизу вверх):
-        # старт с HAMKOR, поднимаем ранг, пока он не стабилизируется.
-        # На каждом шаге отсекаем ветки >= текущей оценки ранга, поэтому
-        # равная/сильная ветка НЕ помогает родителю подняться — он должен
-        # перебить её своим LO + слабыми боковыми.
-        rank = HAMKOR
-        while True:
-            new_rank = self._rank_for(self.clean_go(member, rank))
-            if new_rank.min_points == rank.min_points:
-                return rank
-            rank = new_rank
 
-    def _rank_for(self, clean: float) -> Qualification:
+        kids = list(member.team)
+        while True:
+            # ← возвращаем group_volume() для расчёта квалификации
+            go = float(member.lo) + sum(c.group_volume() for c in kids)
+            candidate = self._rank_for(go)
+            if candidate is HAMKOR:
+                return HAMKOR
+
+            kept = []
+            dropped = False
+            for c in kids:
+                cq = self.qualify(c)
+                if (cq.min_points >= MENTOR.min_points
+                        and cq.min_points >= candidate.min_points):
+                    dropped = True
+                else:
+                    kept.append(c)
+
+            if not dropped:
+                return candidate
+            kids = kept
+
+    def _rank_for(self, go: float) -> Qualification:
         for q in reversed(QUALIFICATIONS):
-            if clean >= q.min_points:
+            if go >= q.min_points:
                 return q
         return HAMKOR
 
@@ -85,33 +96,27 @@ class QualificationResolver:
     # =================================================================
 
     def clean_go(self, member: Member, rank: Qualification) -> float:
-        """
-        LO члена + up_value детей, чьи ветки НЕ отвалились.
-
-        Ветка отваливается, если ребёнок — квалифицированный лидер (Mentor+)
-        с рангом >= проверяемого rank (равный ранг ТОЖЕ отваливается —
-        дифференциальная схема). HAMKOR-ветки не отваливаются никогда,
-        иначе боковые Hamkor перестали бы накапливаться у Hamkor-родителя.
-        """
         total = float(member.lo)
         for child in member.team:
             cq = self.qualify(child)
             breaks_away = (
-                cq.min_points >= MENTOR.min_points
-                and cq.min_points >= rank.min_points
+                    cq.min_points >= MENTOR.min_points
+                    and cq.min_points >= rank.min_points
             )
             if not breaks_away:
-                total += self.up_value(child)
+                total += self.up_value(child, rank)  # ← передаем ранг родителя
         return total
 
-    def up_value(self, member: Member) -> float:
+    def up_value(self, member: Member, parent_rank: Qualification = None) -> float:
         """
-        Чистый GO, который узел поднимает родителю
-        = clean_go при СВОЁМ итоговом ранге.
+        Чистый GO, который узел поднимает родителю.
+        Если parent_rank задан, используем его для отсечения.
         """
-        cached = self._up_cache.get(member.user_id)
+        rank = parent_rank if parent_rank is not None else self.qualify(member)
+        cache_key = (member.user_id, rank.name if rank else None)
+        cached = self._up_cache.get(cache_key)
         if cached is not None:
             return cached
-        value = self.clean_go(member, self.qualify(member))
-        self._up_cache[member.user_id] = value
+        value = self.clean_go(member, rank)
+        self._up_cache[cache_key] = value
         return value

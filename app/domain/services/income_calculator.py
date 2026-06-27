@@ -58,21 +58,63 @@ class IncomeCalculator:
     # КОМАНДНЫЙ — на чистом GO
     # =================================================================
 
-    def team(
-            self, member: Member, member_q: Qualification
-    ) -> Tuple[float, List[BreakdownItem]]:
+    def team(self, member, member_q):
         if member_q.team_percent <= 0:
             return 0.0, []
 
-        base = self._resolver.clean_go(member, member_q)
-        money = base * member_q.team_percent * VERON_PRICE
-        item = BreakdownItem(
-            description=f"Чистый ГО × {member_q.team_percent * 100:.0f}%",
-            volume=base,
+        items = []
+        money = 0.0
+
+        # 1) LO + Hamkor-ветки первого уровня
+        side = float(member.lo)
+        for child in member.team:
+            child_q = self._resolver.qualify(child)
+            if child_q.min_points < MENTOR.min_points:  # Hamkor
+                side += child.lo
+
+        side_money = side * member_q.team_percent * VERON_PRICE
+        money += side_money
+        items.append(BreakdownItem(
+            description=f"Боковой объём – {member_q.team_percent * 100:.0f}%",
+            volume=side,
             percent=member_q.team_percent,
-            money=money,
-        )
-        return money, [item]
+            money=side_money,
+        ))
+
+        # 2) Рекурсивно обходим ВСЕХ детей, но для каждого узла используем clean_go с его РОДИТЕЛЬСКИМ рангом
+        def walk(node, parent_rank):
+            nonlocal money
+            nq = self._resolver.qualify(node)
+
+            # Пропускаем Hamkor
+            if nq.min_points < MENTOR.min_points:
+                return
+
+            # Для каждого Mentor+ узла считаем его "чистый" объем
+            # Используем clean_go с рангом РОДИТЕЛЯ, чтобы отсечь сильные ветки
+            vol = self._resolver.clean_go(node, parent_rank)
+            if vol > 0:
+                m = vol * nq.team_percent * VERON_PRICE
+                money += m
+                items.append(BreakdownItem(
+                    description=(
+                        f"С ветки {nq.name} (ID:{node.user_id}) – "
+                        f"{nq.team_percent * 100:.0f}%"
+                    ),
+                    volume=vol,
+                    percent=nq.team_percent,
+                    money=m,
+                ))
+
+            # Рекурсия в детей с рангом текущего узла
+            for child in node.team:
+                walk(child, nq)
+
+        # Начинаем с прямых детей, parent_rank = member_q
+        for child in member.team:
+            walk(child, member_q)
+
+        return money, items
 
     # =================================================================
     # ЛИДЕРСКИЙ — на отвалившихся (строго сильных) прямых ветках
