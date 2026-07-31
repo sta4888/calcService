@@ -139,266 +139,186 @@ class TestHamkorResponses:
         assert r.branches_info == []
 
     def test_may_mistake(self, calc):
-        big18 = make_member(18, lo=0)
-        big37 = make_member(37, lo=0)
-        big53 = make_member(53, lo=100)
-        big58 = make_member(58, lo=80)
-        big50 = make_member(50, lo=0)
-        big49 = make_member(49, lo=0)
-        big56 = make_member(56, lo=163)
-        big55 = make_member(55, lo=1500)
-        big57 = make_member(57, lo=0)
-        big59 = make_member(59, lo=107)
-        big54 = make_member(54, lo=514, team=[big55, big57, big59])
-        big36 = make_member(36, lo=610, team=[big56])
-        big35 = make_member(35, lo=0, team=[big49])
-        big34 = make_member(34, lo=500, team=[big50, big54])
-        big13 = make_member(13, lo=420, team=[big34, big35, big36, big58])
-        big12 = make_member(12, lo=98, team=[big13, big18, big37, big53])
+        big2 = make_member(2, lo=500)
+        big3 = make_member(3, lo=66)
+        big4 = make_member(4, lo=81.3)
+        big5 = make_member(5, lo=70, team=[big4])
+        big6 = make_member(6, lo=100)
+        big14 = make_member(14, lo=50)
+        big15 = make_member(15, lo=73.3)
+        big13 = make_member(13, lo=580)
+        big12 = make_member(12, lo=50, team=[big15, big14])
+        big11 = make_member(11, lo=60, team=[big13, big12])
+        big10 = make_member(10, lo=271.3, team=[big11])
+        big9 = make_member(9, lo=666.7, team=[big10])
+        big7 = make_member(7, lo=250, team=[big6, big5])
+        big8 = make_member(8, lo=72, team=[big9, big7])
+        big1 = make_member(1, lo=0, team=[big3, big2, big8])
 
+        r = calc.calculate(big15)
 
-
-
-
-
-        # big23 = make_member(23, lo=0)
-        # big25 = make_member(25, lo=0)
-        # big26 = make_member(26, lo=0)
-        # big44 = make_member(44, lo=0)
-        # big68 = make_member(68, lo=0)
-        # big41 = make_member(41, lo=0)
-        # big32 = make_member(32, lo=0, team=[big41])
-        # big8 = make_member(8, lo=0, team=[big23,big32,big25,big26,big44,big68])
-        #
-        # big16 = make_member(16, lo=0)
-        # big28 = make_member(28, lo=0)
-        # big30 = make_member(30, lo=0)
-        # big38 = make_member(38, lo=0)  # сам по себе Direktor+
-        # big67 = make_member(67, lo=0)
-        # big61 = make_member(67, lo=0)
-        # big33 = make_member(33, lo=0)
-        # big29 = make_member(29, lo=0, team=[big30])
-        # big60 = make_member(60, lo=0, team=[big61])
-        # big15 = make_member(15, lo=0, team=[big16, big28, big29])  # сам по себе Direktor+
-        # big14 = make_member(14, lo=0, team=[big38, big60, big67])  # сам по себе Direktor+
-        # big6 = make_member(6, lo=0, team=[big14, big15, big33])  # сам по себе Direktor+
-
-        # parent = make_member(1, lo=10, team=[big])
+        # # ID 15 #######################################
+        assert r.user_id == 15
+        assert r.qualification == HAMKOR.name  # menejer
+        assert r.lo == 73.3
+        assert r.go == 73.3
+        assert r.group_side_volume == 73.0  # 621
+        assert r.extra_bonus == HAMKOR.extra_bonus
+        # #############################################
+        r = calc.calculate(big14)
+        # # ID 14 #######################################
+        assert r.user_id == 14
+        assert r.qualification == HAMKOR.name  # menejer
+        assert r.lo == 50
+        assert r.go == 50
+        assert r.group_side_volume == 50  # 621
+        assert r.extra_bonus == HAMKOR.extra_bonus
+        # #############################################
+        r = calc.calculate(big12)
+        # # ID 14 #######################################
+        assert r.user_id == 12
+        assert r.qualification == HAMKOR.name  # menejer
+        assert r.lo == 50
+        assert r.go == 173.3
+        assert r.group_side_volume == 173.0  # 621
+        assert r.extra_bonus == HAMKOR.extra_bonus
+        # #############################################
         r = calc.calculate(big13)
-
+        # # ID 14 #######################################
         assert r.user_id == 13
-        assert r.qualification == DIREKTOR.name  # menejer
-        assert r.lo == 420
-        assert r.go == 3894
-        assert r.group_side_volume == 3894  # 621
-        assert r.side_volume == 500  #
-        assert r.points == 500
-        assert r.personal_bonus == 0.4
-        assert r.structure_bonus == 0.45
-        assert r.mentor_bonus == 0.04
-        assert r.extra_bonus == DIREKTOR.extra_bonus
-        assert r.personal_money == 1_176_000  #
-        assert r.group_money == 5939500 # 4_762_450
-        assert r.leader_money == 0
-        assert r.side_vol_money == 0
-        assert r.total_money == 5938450
-        assert r.veron == 168
-        assert r.total_income == 5938450
-        assert r.branches_info == []
+        assert r.qualification == MENTOR.name  # menejer
+        assert r.lo == 580
+        assert r.go == 580
+        assert r.group_side_volume == 580  # 621
+        assert r.extra_bonus == MENTOR.extra_bonus
+        # #############################################
+        r = calc.calculate(big11)
+        # # ID 14 #######################################
+        assert r.user_id == 11
+        assert r.qualification == HAMKOR.name  # menejer
+        assert r.lo == 60
+        assert r.go == 813.3
+        assert r.group_side_volume == 813.0  # 621
+        assert r.extra_bonus == HAMKOR.extra_bonus
+        # #############################################
+        r = calc.calculate(big10)
+        # # ID 14 #######################################
+        assert r.user_id == 10
+        assert r.qualification == MENTOR.name  # menejer
+        assert r.lo == 271.3
+        assert r.go == 1084.6
+        assert r.group_side_volume == 1085.0  # 621
+        assert r.extra_bonus == MENTOR.extra_bonus
+        # #############################################
+        r = calc.calculate(big9)
+        # # ID 14 #######################################
+        assert r.user_id == 9
+        assert r.qualification == MENEJER.name  # menejer
+        assert r.lo == 666.7
+        assert r.go == 1751.3
+        assert r.group_side_volume == 1751.0  # 621
+        assert r.extra_bonus == MENEJER.extra_bonus
+        # #############################################
+        r = calc.calculate(big8)
+        # # ID 14 #######################################
+        assert r.user_id == 8
+        assert r.qualification == HAMKOR.name  # menejer
+        assert r.lo == 72.0
+        assert r.go == 2324.6
+        assert r.group_side_volume ==  2325  # 621
+        assert r.extra_bonus == HAMKOR.extra_bonus
+        # #############################################
+        r = calc.calculate(big7)
+        # # ID 14 #######################################
+        assert r.user_id == 7
+        assert r.qualification == MENTOR.name  # menejer
+        assert r.lo == 250.0
+        assert r.go == 501.3
+        assert r.group_side_volume == 501  # 621
+        assert r.extra_bonus == MENTOR.extra_bonus
+        # #############################################
+        r = calc.calculate(big5)
+        # # ID 14 #######################################
+        assert r.user_id == 5
+        assert r.qualification == HAMKOR.name  # menejer
+        assert r.lo == 70
+        assert r.go == 151.3
+        assert r.group_side_volume == 151  # 621
+        assert r.extra_bonus == HAMKOR.extra_bonus
+        # #############################################
 
-        # assert r.user_id == 54
-        # assert r.qualification == MENTOR.name # menejer
-        # assert r.lo == 514
-        # assert r.go == 2121
-        # assert r.group_side_volume == 621 # 621
-        # assert r.side_volume == 621 #
-        # assert r.points == 621
-        # assert r.personal_bonus == 0.4
+
+
+
+        # ##################################################################
+        #
+        # # only 27 and 4
+        # big46 = make_member(46, lo=0)
+        # big42 = make_member(42, lo=0, team=[big46])
+        # big20 = make_member(20, lo=0)
+        # big19 = make_member(19, lo=0, team=[big20, big42])
+        # big17 = make_member(17, lo=0, team=[big19])
+        # big51 = make_member(51, lo=0)
+        # big45 = make_member(45, lo=0)
+        # big21 = make_member(21, lo=0, team=[big51, big45])
+        # big69 = make_member(69, lo=0)
+        # big66 = make_member(66, lo=500)
+        # big31 = make_member(31, lo=0)
+        # big27 = make_member(27, lo=1000, team=[big31, big66, big69])
+        # big22 = make_member(22, lo=0, team=[big27])
+        # big43 = make_member(43, lo=0)
+        # big65 = make_member(65, lo=0)
+        # big64 = make_member(64, lo=0, team=[big65])
+        # big63 = make_member(63, lo=0)
+        # big62 = make_member(62, lo=0, team=[big63, big64])
+        #
+        # big4 = make_member(4, lo=1000, team=[big17, big21, big22, big43, big62])
+        # r = calc.calculate(big27)
+        #
+        # # ID 27 #######################################
+        # assert r.user_id == 27
+        # assert r.qualification == MENEJER.name  # menejer
+        # assert r.lo == 1000
+        # assert r.go == 1500
+        # assert r.group_side_volume == 1500  # 621
+        # assert r.side_volume == 1000  #
+        # assert r.points == 1000
+        # assert r.personal_bonus == 0.40
+        # assert r.structure_bonus == 0.35
+        # assert r.mentor_bonus == 0.03
+        # assert r.extra_bonus == MENEJER.extra_bonus
+        # assert r.personal_money == 2800000  #
+        # assert r.group_money == 2975000  # 4_762_450
+        # assert r.leader_money == 0
+        # assert r.side_vol_money == 0
+        # assert r.total_money == 5775000
+        # assert r.veron == 400
+        # assert r.total_income == 5775000
+        # assert r.branches_info == []
+        # #############################################
+        #
+        # r = calc.calculate(big4)
+        # # ID 4 #######################################
+        # assert r.user_id == 4
+        # assert r.qualification == MENTOR.name  # menejer
+        # assert r.lo == 1000
+        # assert r.go == 2500
+        # assert r.group_side_volume == 2500  # 621
+        # assert r.side_volume == 1000  #
+        # assert r.points == 1000
+        # assert r.personal_bonus == 0.40
         # assert r.structure_bonus == 0.2
         # assert r.mentor_bonus == 0.02
         # assert r.extra_bonus == MENTOR.extra_bonus
-        # assert r.personal_money == 1_439_200 #
-        # assert r.group_money == 869_400 # 869400
-        # assert r.leader_money == 210_000
+        # assert r.personal_money == 2800000  #
+        # assert r.group_money == 1400000  # 4_762_450
+        # assert r.leader_money == 0
         # assert r.side_vol_money == 0
-        # assert r.total_money == 2_518_600
-        # assert r.veron == 206
-        # assert r.total_income == 2_518_600
+        # assert r.total_money == 4200000
+        # assert r.veron == 400
+        # assert r.total_income == 4200000
         # assert r.branches_info == []
+        # #############################################
+        # ##################################################################
 
 
-
-# # =============================================================================
-# # Одиночки — без команды
-# # =============================================================================
-#
-# class TestSoloRanks:
-#
-#     def test_solo_mentor(self, calc):
-#         """LO=500 → Mentor. Командный идёт со своего же объёма (без веток)."""
-#         m = make_member(1, lo=500)
-#         r = calc.calculate(m)
-#
-#         assert r.qualification == "Mentor"
-#         assert r.personal_money == int(round(500 * 0.40 * VERON_PRICE))  # 1_400_000
-#         assert r.group_money == int(round(500 * 0.20 * VERON_PRICE))     # 700_000
-#         assert r.leader_money == 0
-#         assert r.total_money == 2_100_000
-#         assert r.veron == int(round(500 * 0.40))                         # 200
-#
-#     def test_solo_menejer(self, calc):
-#         """LO=1500 → Menejer."""
-#         menejer = qual_by_name("Menejer")
-#         m = make_member(1, lo=1500)
-#         r = calc.calculate(m)
-#
-#         assert r.qualification == "Menejer"
-#         expected_personal = int(round(1500 * menejer.personal_percent * VERON_PRICE))
-#         expected_team = int(round(1500 * menejer.team_percent * VERON_PRICE))
-#         assert r.personal_money == expected_personal
-#         assert r.group_money == expected_team
-#         assert r.leader_money == 0
-#         assert r.total_money == expected_personal + expected_team
-#
-#     def test_response_carries_bonus_percents(self, calc):
-#         """В ответе процентные бонусы = проценты квалификации (для не-Hamkor)."""
-#         m = make_member(42, lo=500)
-#         r = calc.calculate(m)
-#         mentor = qual_by_name("Mentor")
-#         assert r.personal_bonus == mentor.personal_percent
-#         assert r.structure_bonus == mentor.team_percent
-#         assert r.mentor_bonus == mentor.mentor_percent
-#         assert r.extra_bonus == mentor.extra_bonus
-#
-#
-# # =============================================================================
-# # Команда — слабая (склеивается в чистый ГО родителя)
-# # =============================================================================
-#
-# class TestWeakTeam:
-#
-#     def test_mentor_built_from_weak_child(self, calc):
-#         """parent LO=200 + Hamkor-child LO=300 → parent тащит ребёнка, становится Mentor."""
-#         child = make_member(2, lo=300)
-#         parent = make_member(1, lo=200, team=[child])
-#         r = calc.calculate(parent)
-#
-#         assert r.qualification == "Mentor"
-#         # личный считается строго по LO родителя
-#         assert r.personal_money == int(round(200 * 0.40 * VERON_PRICE))   # 560_000
-#         # командный — на чистом ГО (200 + 300)
-#         assert r.group_money == int(round(500 * 0.20 * VERON_PRICE))      # 700_000
-#         assert r.leader_money == 0                                         # ребёнок Hamkor
-#         assert r.go == 500.0
-#         assert r.side_volume == 500.0
-#
-#     def test_personal_money_uses_lo_not_go(self, calc):
-#         """Личный — только с LO, даже если ГО намного больше."""
-#         kids = [make_member(i, lo=200) for i in range(2, 7)]   # 5 × 200 = 1000
-#         parent = make_member(1, lo=100, team=kids)
-#         r = calc.calculate(parent)
-#         assert r.personal_money == int(round(100 * 0.40 * VERON_PRICE))
-#
-#
-# # =============================================================================
-# # Команда — сильная (отваливается → лидерский овердайд)
-# # =============================================================================
-#
-# class TestStrongTeam:
-#
-#     def test_mentor_under_mentor_breaks_away(self, calc):
-#         """Дочерний Mentor отваливается: командный без него, появляется лидерский."""
-#         child = make_member(2, lo=500)
-#         parent = make_member(1, lo=500, team=[child])
-#         r = calc.calculate(parent)
-#
-#         mentor = qual_by_name("Mentor")
-#         assert r.qualification == "Mentor"
-#         assert r.personal_money == int(round(500 * mentor.personal_percent * VERON_PRICE))
-#         # ветка отвалилась — командный только с LO родителя
-#         assert r.group_money == int(round(500 * mentor.team_percent * VERON_PRICE))
-#         # лидерский = up_value(child) × mentor_percent
-#         assert r.leader_money == int(round(500 * mentor.mentor_percent * VERON_PRICE))
-#         assert r.go == 1000.0                # полный GO — для показа
-#         assert r.side_volume == 500.0        # чистый — без отвалившейся ветки
-#     #
-#     # def test_menejer_with_strong_mentor_branch(self, calc):
-#     #     """Menejer-родитель + Mentor-ребёнок: лидерский идёт по проценту Menejer."""
-#     #     menejer = qual_by_name("Menejer")
-#     #     child = make_member(2, lo=500)            # Mentor
-#     #     parent = make_member(1, lo=1500, team=[child])
-#     #     r = calc.calculate(parent)
-#     #
-#     #     assert r.qualification == "Menejer"
-#     #     assert r.personal_money == int(round(1500 * menejer.personal_percent * VERON_PRICE))
-#     #     assert r.group_money == int(round(1500 * menejer.team_percent * VERON_PRICE))
-#     #     assert r.leader_money == int(round(500 * menejer.mentor_percent * VERON_PRICE))
-#     #     assert r.side_volume == 1500.0
-#     #     assert r.go == 2000.0
-#
-#     def test_mixed_team_weak_stays_strong_breaks(self, calc):
-#         """Слабая ветка склеивается, сильная отваливается."""
-#         mentor = qual_by_name("Mentor")
-#         strong = make_member(2, lo=500)   # Mentor — отвалится
-#         weak = make_member(3, lo=300)     # Hamkor — останется в clean
-#         parent = make_member(1, lo=500, team=[strong, weak])
-#         r = calc.calculate(parent)
-#
-#         # clean_go(parent) = 500 (LO) + 300 (weak) = 800; strong не считается
-#         assert r.qualification == "Mentor"
-#         assert r.side_volume == 800.0
-#         assert r.go == 1300.0
-#         assert r.personal_money == int(round(500 * mentor.personal_percent * VERON_PRICE))
-#         assert r.group_money == int(round(800 * mentor.team_percent * VERON_PRICE))
-#         assert r.leader_money == int(round(500 * mentor.mentor_percent * VERON_PRICE))
-#
-#
-# # =============================================================================
-# # Сброс кэша между вызовами
-# # =============================================================================
-#
-# class TestCacheReset:
-#     """resolver.clear() обязан вызываться в начале calculate()."""
-#
-#     def test_two_calls_same_input_same_output(self, calc):
-#         r1 = calc.calculate(make_member(1, lo=500))
-#         r2 = calc.calculate(make_member(1, lo=500))
-#         assert r1.total_money == r2.total_money
-#         assert r1.qualification == r2.qualification
-#
-#     def test_two_calls_different_volumes_different_results(self, calc):
-#         """Один и тот же user_id, разный LO → разный результат (кэш не залип)."""
-#         r1 = calc.calculate(make_member(1, lo=500))    # Mentor
-#         r2 = calc.calculate(make_member(1, lo=1500))   # Menejer
-#         assert r1.qualification == "Mentor"
-#         assert r2.qualification == "Menejer"
-#         assert r1.total_money != r2.total_money
-#
-#
-# # =============================================================================
-# # Раскладка полей в IncomeResponse
-# # =============================================================================
-#
-# class TestResponseFields:
-#
-#     def test_branches_info_always_empty(self, calc):
-#         """Текущий фасад не наполняет branches_info."""
-#         m = make_member(1, lo=500, team=[make_member(2, lo=300)])
-#         r = calc.calculate(m)
-#         assert r.branches_info == []
-#
-#     def test_side_vol_money_always_zero(self, calc):
-#         m = make_member(1, lo=500)
-#         r = calc.calculate(m)
-#         assert r.side_vol_money == 0
-#
-#     def test_total_income_matches_total_money(self, calc):
-#         m = make_member(1, lo=1500)
-#         r = calc.calculate(m)
-#         assert r.total_income == float(r.total_money)
-#
-#     # def test_group_side_volume_rounded_int(self, calc):
-#     #     m = make_member(1, lo=500)
-#     #     r = calc.calculate(m)
-#     #     assert isinstance(r.group_side_volume, int)
-#     #     assert r.group_side_volume == 500

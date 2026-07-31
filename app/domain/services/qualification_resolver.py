@@ -62,17 +62,10 @@ class QualificationResolver:
     def _resolve(self, member: Member) -> Qualification:
         if member.lo < ACTIVITY_THRESHOLD:
             return HAMKOR
-        # НАИМЕНЬШАЯ неподвижная точка (снизу вверх):
-        # старт с HAMKOR, поднимаем ранг, пока он не стабилизируется.
-        # На каждом шаге отсекаем ветки >= текущей оценки ранга, поэтому
-        # равная/сильная ветка НЕ помогает родителю подняться — он должен
-        # перебить её своим LO + слабыми боковыми.
-        rank = HAMKOR
-        while True:
-            new_rank = self._rank_for(self.clean_go(member, rank))
-            if new_rank.min_points == rank.min_points:
-                return rank
-            rank = new_rank
+        for q in reversed(QUALIFICATIONS):
+            if self.clean_go(member, q) >= q.min_points:
+                return q
+        return HAMKOR
 
     def _rank_for(self, clean: float) -> Qualification:
         for q in reversed(QUALIFICATIONS):
@@ -84,24 +77,16 @@ class QualificationResolver:
     # ЧИСТЫЙ GO / ПОДНЯТЫЙ ОБЪЁМ
     # =================================================================
 
-    def clean_go(self, member: Member, rank: Qualification) -> float:
-        """
-        LO члена + up_value детей, чьи ветки НЕ отвалились.
-
-        Ветка отваливается, если ребёнок — квалифицированный лидер (Mentor+)
-        с рангом >= проверяемого rank (равный ранг ТОЖЕ отваливается —
-        дифференциальная схема). HAMKOR-ветки не отваливаются никогда,
-        иначе боковые Hamkor перестали бы накапливаться у Hamkor-родителя.
-        """
+    def clean_go(self, member, rank):
         total = float(member.lo)
         for child in member.team:
             cq = self.qualify(child)
             breaks_away = (
-                cq.min_points >= MENTOR.min_points
-                and cq.min_points >= rank.min_points
+                    cq.min_points >= MENTOR.min_points
+                    and cq.min_points >= rank.min_points
             )
             if not breaks_away:
-                total += self.up_value(child)
+                total += self.clean_go(child, rank)  # рекурсия с ТЕМ ЖЕ rank
         return total
 
     def up_value(self, member: Member) -> float:

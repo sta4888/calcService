@@ -63,56 +63,46 @@ class IncomeCalculator:
             return 0.0, []
 
         items = []
-        money = 0.0
-
-        # 1) LO + Hamkor-ветки первого уровня
-        side = float(member.lo)
-        for child in member.team:
-            child_q = self._resolver.qualify(child)
-            if child_q.min_points < MENTOR.min_points:  # Hamkor
-                side += child.lo
-
-        side_money = side * member_q.team_percent * VERON_PRICE
-        money += side_money
+        money = member.lo * member_q.team_percent * VERON_PRICE
         items.append(BreakdownItem(
-            description=f"Боковой объём – {member_q.team_percent * 100:.0f}%",
-            volume=side,
+            description=f"Личный объём – {member_q.team_percent * 100:.0f}%",
+            volume=member.lo,
             percent=member_q.team_percent,
-            money=side_money,
+            money=money,
         ))
 
-        # 2) Рекурсивно обходим ВСЕХ детей, но для каждого узла используем clean_go с его РОДИТЕЛЬСКИМ рангом
-        def walk(node, parent_rank):
-            nonlocal money
+        # Каждый узел поддерева платит member разницу (tp_member - tp_node)
+        # со своего up_value, ЕСЛИ member — его ближайший уплайн со строго
+        # большим team_percent. Идём снизу вверх: узел "закрывается" на
+        # первом предке, чей tp строго выше.
+        def collect(node, blocked_percent):
+            """
+            blocked_percent — максимальный tp среди предков МЕЖДУ node и member.
+            Если у какого-то промежуточного предка tp >= tp(node), то node
+            платит ЕМУ, а не member → сюда не попадает.
+            """
             nq = self._resolver.qualify(node)
+            # node платит member только если между ними нет предка с tp > tp(node)
+            if nq.team_percent < member_q.team_percent and blocked_percent <= nq.team_percent:
+                diff = member_q.team_percent - nq.team_percent
+                vol = self._resolver.up_value(node)
+                if vol > 0 and diff > 0:
+                    m = vol * diff * VERON_PRICE
+                    nonlocal money
+                    money += m
+                    items.append(BreakdownItem(
+                        description=f"С ветки {nq.name} (ID:{node.user_id}) – {diff * 100:.0f}%",
+                        volume=vol,
+                        percent=diff,
+                        money=m,
+                    ))
+            # спускаемся: обновляем "потолок" перекрытия
+            child_blocked = max(blocked_percent, nq.team_percent)
+            for c in node.team:
+                collect(c, child_blocked)
 
-            # Пропускаем Hamkor
-            if nq.min_points < MENTOR.min_points:
-                return
-
-            # Для каждого Mentor+ узла считаем его "чистый" объем
-            # Используем clean_go с рангом РОДИТЕЛЯ, чтобы отсечь сильные ветки
-            vol = self._resolver.clean_go(node, parent_rank)
-            if vol > 0:
-                m = vol * nq.team_percent * VERON_PRICE
-                money += m
-                items.append(BreakdownItem(
-                    description=(
-                        f"С ветки {nq.name} (ID:{node.user_id}) – "
-                        f"{nq.team_percent * 100:.0f}%"
-                    ),
-                    volume=vol,
-                    percent=nq.team_percent,
-                    money=m,
-                ))
-
-            # Рекурсия в детей с рангом текущего узла
-            for child in node.team:
-                walk(child, nq)
-
-        # Начинаем с прямых детей, parent_rank = member_q
         for child in member.team:
-            walk(child, member_q)
+            collect(child, 0.0)
 
         return money, items
 
